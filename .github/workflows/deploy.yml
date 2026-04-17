@@ -1,0 +1,19 @@
+name: Sync to Hugging Face hub
+on:
+  push:
+    branches: [main]
+  force_push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Push to hub
+        env:
+          HF_TOKEN: ${{ secrets.HUGGING_FACE_KEY }} # GitHub'a eklediğin Secret adı
+        run: git push --force https://semanurozyilmaz:$HUGGING_FACE_KEY @huggingface.co/spaces/semanurozyilmaz/degerlendirme_sistemi main
