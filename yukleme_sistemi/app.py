@@ -303,7 +303,6 @@ def sil_teslim(id):
     try:
         db.session.delete(teslim)
         db.session.commit()
-        os.remove(teslim.dosya_yolu)
         return redirect(url_for('yetkili'))
     except Exception as e:
         db.session.rollback()
@@ -317,7 +316,6 @@ def sil_odev(id):
     try:
         db.session.delete(odev)
         db.session.commit()
-        os.remove(odev.dosya_yolu)
     except Exception as e:
         db.session.rollback()
         print(f"Hata: {e}")
