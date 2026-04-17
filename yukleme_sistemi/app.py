@@ -15,8 +15,8 @@ app = Flask(__name__,template_folder='templates',
 load_dotenv()
 app.secret_key = os.getenv("SECRET_KEY", "varsayilan-key-123")
 database_url = os.getenv("DATABASE_URL")
-API = os.environ.get("GROQ")
-default_key = os.environ.get("DEFAULT_YETKILI_SIFRE")
+API = os.getenv("GROQ")
+default_key = os.getenv("DEFAULT_YETKILI_SIFRE")
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///local.db'

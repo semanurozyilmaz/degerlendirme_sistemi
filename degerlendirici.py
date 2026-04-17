@@ -18,7 +18,7 @@ def ai_ile_puanla_groq(dosya_yolu, odev_tanimi, kriterler):
         messages=[
             {
                 "role": "system",
-                "content": "Sen titiz bir bilgisayar mühendisliği hocasısın. Kodun hem çalışabilirliğini hem de yapısal kalitesini değerlendirirsin."
+                "content": os.getenv("CONTENT")
             },
             {
                 "role": "user",
@@ -30,11 +30,7 @@ def ai_ile_puanla_groq(dosya_yolu, odev_tanimi, kriterler):
                 ```c
                 {ogrenci_kodu}
                 ```
-                
-                Lütfen şu formatta cevap ver:
-                - TOPLAM PUAN: (0-100 arası bir sayı)
-                - KRİTER DEĞERLENDİRMESİ: (Madde madde puan dağılımı)
-                - ÖNERİLER: (Öğrenci neyi daha iyi yapabilirdi?)
+                {os.getenv("RESPONSE_FORMAT")}
                 """
             }
         ],
