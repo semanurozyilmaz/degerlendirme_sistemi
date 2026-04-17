@@ -1,5 +1,6 @@
 .env
 .db
+.c
 yukleme_sistemi/.env
 instance/odevler.db
 odev.c

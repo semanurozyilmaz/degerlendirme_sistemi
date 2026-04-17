@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 app = Flask(__name__,template_folder='templates',
             static_folder='static')
 load_dotenv()
-app.secret_key = os.getenv("SECRET_KEY", "varsayilan-key-123")
+app.secret_key = os.getenv("SECRET_KEY")
 database_url = os.getenv("DATABASE_URL")
 API = os.getenv("GROQ")
 default_key = os.getenv("DEFAULT_YETKILI_SIFRE")
