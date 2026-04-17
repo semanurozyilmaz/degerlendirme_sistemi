@@ -1,0 +1,17 @@
+<h2>Aktif Ödevler</h2>
+{% for odev in aktif_odevler %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h4>{{ odev.baslik }}</h4>
+        <p>{{ odev.tanim }}</p>
+        <small>Kriterler: {{ odev.kriterler }}</small>
+        <hr>
+        <form action="/yukle" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="odev_id" value="{{ odev.id }}">
+            <input type="text" name="ad" placeholder="Ad Soyad" required>
+            <input type="file" name="dosya" accept=".c" required>
+            <button type="submit">Ödevi Teslim Et</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
