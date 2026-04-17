@@ -12,7 +12,7 @@
             <div class="col-md-4">
                 <div class="card shadow">
                     <div class="card-header bg-dark text-white text-center">
-                        <h4>Yönetici Girişi</h4>
+                        <h4>Yetkili Girişi</h4>
                     </div>
                     <div class="card-body p-4">
                         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -38,11 +38,11 @@
             </div>
         </div>
     </div>
-    <div class="text-center mt-3">
-        <a href="/reset-password-to-default" class="text-danger small"
-            onclick="return confirm('Şifre varsayılana dönecek. Emin misiniz?')">
-            Şifremi Unuttum (Sıfırla)
-        </a>
+    <div class="login-footer" style="margin-top: 15px; display: block; clear: both;"></div>
+    <a href="/reset-password-to-default" class="text-danger small"
+        onclick="return confirm('Şifre varsayılana dönecek. Emin misiniz?')">
+        Şifremi Unuttum (Sıfırla)
+    </a>
     </div>
 </body>
 
