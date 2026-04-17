@@ -99,7 +99,7 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         
         # ... AI yanıtını aldığın satırdan sonrası ...
         yanit = completion.choices[0].message.content
-        
+        print(yanit)
         # Markdown bloklarını temizle (eğer varsa)
         if "```json" in yanit:
             yanit = yanit.split("```json")[1].split("```")[0].strip()
