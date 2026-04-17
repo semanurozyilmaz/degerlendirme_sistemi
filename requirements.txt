@@ -3,4 +3,3 @@ flask-sqlalchemy
 groq
 psycopg2-binary
 python-dotenv
-functools
