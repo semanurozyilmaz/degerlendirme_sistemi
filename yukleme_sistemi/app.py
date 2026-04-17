@@ -13,10 +13,14 @@ from dotenv import load_dotenv
 app = Flask(__name__)
 load_dotenv()
 app.secret_key = os.getenv("SECRET_KEY", "varsayilan-key-123")
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///odevler.db'
-db = SQLAlchemy(app)
+database_url = os.getenv("DATABASE_URL")
 API = os.environ.get("GROQ")
 default_key = os.environ.get("DEFAULT_YETKILI_SIFRE")
+if database_url and database_url.startswith("postgres://"):
+    # SQLAlchemy, postgres:// yerine postgresql:// bekler (Küçük bir düzeltme)
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///odevler.db'
+db = SQLAlchemy()
 # GÜVENLİK DUVARI (Decorator)
 # Bu fonksiyon, bir rotaya girmeden önce "Hoca giriş yapmış mı?" diye bakar.
 def login_required(f):

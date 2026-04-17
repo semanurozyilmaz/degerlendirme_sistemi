@@ -1,3 +1,4 @@
 flask
 flask-sqlalchemy
 groq
+psycopg2-binary
