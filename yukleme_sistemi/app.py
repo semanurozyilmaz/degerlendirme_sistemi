@@ -65,7 +65,7 @@ with app.app_context():
     db.create_all()
     if not Ayarlar.query.first():
         default_sifre = os.getenv("DEFAULT_YETKILI_SIFRE")
-        varsayilan_ayar = Ayarlar(default_sifre)
+        varsayilan_ayar = Ayarlar(yonetici_sifre=default_sifre)
         db.session.add(varsayilan_ayar)
         db.session.commit()
 
