@@ -1,5 +1,5 @@
 FROM python:3.9
-
+ENV PYTHONUNBUFFERED=1
 # Çalışma dizinini ayarla
 WORKDIR /app
 
