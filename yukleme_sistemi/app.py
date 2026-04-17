@@ -304,7 +304,7 @@ def sil_teslim(id):
         db.session.delete(teslim)
         db.session.commit()
         os.remove(teslim.dosya_yolu)
-        return redirect(url_for('yetkili_panel'))
+        return redirect(url_for('yetkili'))
     except Exception as e:
         db.session.rollback()
         return f"Silme işlemi sırasında hata oluştu: {e}"
@@ -322,6 +322,6 @@ def sil_odev(id):
         db.session.rollback()
         print(f"Hata: {e}")
         
-    return redirect(url_for('yetkili_panel'))
+    return redirect(url_for('yetkili'))
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=7860)
