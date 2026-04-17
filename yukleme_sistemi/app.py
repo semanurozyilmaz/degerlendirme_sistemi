@@ -294,5 +294,34 @@ def reset_password():
         flash("Şifre varsayılan olarak sıfırlandı!", "warning")
     return redirect(url_for('login'))
 
+@app.route('yetkili/sil/<int:id>', methods=['POST'])
+def sil_teslim(id):
+    if not session.get('yetkili_giris'):
+        return redirect(url_for('login'))
+
+    teslim = OdevTeslim.query.get_or_404(id)
+    try:
+        db.session.delete(teslim)
+        db.session.commit()
+        os.remove(teslim.dosya_yolu)
+        return redirect(url_for('yetkili_panel'))
+    except Exception as e:
+        db.session.rollback()
+        return f"Silme işlemi sırasında hata oluştu: {e}"
+    
+@app.route('/yetkili/sil-odev/<int:id>', methods=['POST'])
+def sil_odev(id):
+    if not session.get('yetkili_giris'):
+        return redirect(url_for('login'))
+    odev = Odev.query.get_or_404(id)
+    try:
+        db.session.delete(odev)
+        db.session.commit()
+        os.remove(odev.dosya_yolu)
+    except Exception as e:
+        db.session.rollback()
+        print(f"Hata: {e}")
+        
+    return redirect(url_for('yetkili_panel'))
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=7860)

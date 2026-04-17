@@ -52,19 +52,53 @@
     </div>
 
     <h3 class="mb-3">Aktif/Pasif Ödevler</h3>
-    <div class="list-group mb-5">
+    <div class="accordion mb-5" id="odevAccordion">
         {% for odev in tum_odevler %}
-        <div class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-                <strong>{{ odev.baslik }}</strong>
-                <span class="badge {{ 'bg-success' if odev.is_active else 'bg-danger' }} ms-2">
-                    {{ 'Öğrencilere Açık' if odev.is_active else 'Gizli' }}
-                </span>
+        <div class="accordion-item shadow-sm mb-2 border">
+            <h2 class="accordion-header" id="heading{{ odev.id }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapse{{ odev.id }}" aria-expanded="false">
+                    <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                        <div>
+                            <strong>{{ odev.baslik }}</strong>
+                            <span class="badge {{ 'bg-success' if odev.is_active else 'bg-danger' }} ms-2">
+                                {{ 'Öğrencilere Açık' if odev.is_active else 'Gizli' }}
+                            </span>
+                        </div>
+                    </div>
+                </button>
+            </h2>
+            <div id="collapse{{ odev.id }}" class="accordion-collapse collapse" data-bs-parent="#odevAccordion">
+                <div class="accordion-body bg-light">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><strong>Ödev Açıklaması:</strong></h6>
+                            <p class="text-muted small">{{ odev.tanim or 'Açıklama yok.' }}</p>
+                        </div>
+                        <div class="col-md-6 border-start">
+                            <h6><strong>Puanlama Kriterleri:</strong></h6>
+                            <p class="text-muted small italic">{{ odev.kriterler or 'Kriter belirlenmemiş.' }}</p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="/yetkili/toggle-odev/{{ odev.id }}"
+                            class="btn btn-sm {{ 'btn-warning' if odev.is_active else 'btn-info' }}">
+                            <i class="fas {{ 'fa-eye-slash' if odev.is_active else 'fa-eye' }} me-1"></i>
+                            {{ 'Gizle' if odev.is_active else 'Göster' }}
+                        </a>
+
+                        <form action="{{ url_for('sil_odev', id=odev.id) }}" method="POST"
+                            onsubmit="return confirm('Bu ödevi ve buna bağlı TÜM öğrenci cevaplarını silmek istediğinize emin misiniz?');">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash-alt me-1"></i> Sil
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <a href="/yetkili/toggle-odev/{{ odev.id }}"
-                class="btn btn-sm {{ 'btn-warning' if odev.is_active else 'btn-info' }}">
-                {{ 'Gizle' if odev.is_active else 'Göster' }}
-            </a>
         </div>
         {% endfor %}
     </div>
@@ -91,6 +125,15 @@
                     <button class="btn btn-sm btn-outline-dark" onclick="koduGoster('{{ teslim.id }}')">Detay</button>
                     <div id="kod-{{ teslim.id }}" style="display:none;">{{ teslim.kod_icerik }}</div>
                     <div id="not-{{ teslim.id }}" style="display:none;">{{ teslim.geri_bildirim }}</div>
+                </td>
+                <td>
+                    <form action="{{ url_for('sil_teslim', id=teslim.id) }}" method="POST"
+                        onsubmit="return confirm('Bu ödevi ve AI değerlendirmesini kalıcı olarak silmek istediğinize emin misiniz?');"
+                        style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Sil">
+                            <i class="fas fa-trash-alt"></i> Sil
+                        </button>
+                    </form>
                 </td>
             </tr>
             {% endfor %}
