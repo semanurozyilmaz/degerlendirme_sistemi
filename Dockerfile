@@ -1,25 +1,15 @@
-# 1. Aşama: Hafif bir Python imajı
-FROM python:3.10-slim
-ENV PYTHONUNBUFFERED=1
-# 2. Aşama: C Derleyicisi kurulumu (Mac'ten bağımsız çalışması için)
-RUN apt-get update && apt-get install -y gcc build-essential
+FROM python:3.9
 
-# 3. Aşama: Çalışma dizini oluştur ve içine gir
+# Çalışma dizinini ayarla
 WORKDIR /app
 
-# 4. Aşama: Önce klasör içindeki gereksinimleri kopyala ve kur
+# 1. Önce dışarıdaki gereksinim dosyasını kopyala ve yükle
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Aşama: yukleyici_sistemi klasörünün içindeki her şeyi /app içine kopyala
-# Bu satır kritik! Klasörün kendisini değil, İÇİNDEKİLERİ kopyalıyoruz.
-COPY yukleme_sistemi/ .
+# 2. Her şeyi (yukleme_sistemi klasörü dahil) kopyala
+COPY . .
 
-# 6. Aşama: Dosyalar gerçekten geldi mi diye kontrol amaçlı listeletme (Loglarda görürsün)
-RUN ls -la /app
-
-# 7. Aşama: Flask portunu aç
-EXPOSE 5000
-
-# 8. Aşama: Uygulamayı çalıştır (Artık dosya doğrudan /app/app.py oldu)
-CMD ["python", "app.py"]
+# 3. Python'a uygulamanın nerede olduğunu söyle
+# Klasörün içindeki app.py'yi çalıştırıyoruz
+CMD ["python", "yukleme_sistemi/app.py"]
