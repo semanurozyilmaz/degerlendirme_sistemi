@@ -12,4 +12,5 @@ COPY . .
 
 # 3. Python'a uygulamanın nerede olduğunu söyle
 # Klasörün içindeki app.py'yi çalıştırıyoruz
+EXPOSE 7860
 CMD ["python", "yukleme_sistemi/app.py"]
