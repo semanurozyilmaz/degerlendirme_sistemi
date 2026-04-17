@@ -1,25 +1,17 @@
 #include <stdio.h>
 
-/* * Bu program kullanicidan alinan sayinin faktöriyelini hesaplar.
- * Negatif sayilar icin kontrol icerir.
- */
 int main() {
-    int n, i;
-    unsigned long long factorial = 1;
+    int a, b;
+    long c = 1;
 
-    printf("Bir tamsayi giriniz: ");
-    scanf("%d", &n);
+    scanf("%d", &a);
 
-    // Negatif sayi kontrolü
-    if (n < 0)
-        printf("Hata! Negatif sayilarin faktöriyeli hesaplanamaz.\n");
-    else {
-        // Faktöriyel hesaplama döngüsü
-        for (i = 1; i <= n; ++i) {
-            factorial *= i;
+    if (a >= 0) {
+        for (b = 1; b <= a; b++) {
+            c = c * b;
         }
-        printf("%d sayisinin faktöriyeli = %llu\n", n, factorial);
+        printf("%ld\n", c);
     }
-
+    
     return 0;
 }
