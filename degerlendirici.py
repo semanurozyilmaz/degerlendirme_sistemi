@@ -29,10 +29,12 @@ def ai_ile_puanla_groq(dosya_yolu, odev_tanimi, kriterler):
                 ```c
                 {ogrenci_kodu}
                 ```
-                Lütfen şu formatta cevap ver: 
-                - TOPLAM PUAN: (0-100 arası bir sayı) 
-                - KRİTER DEĞERLENDİRMESİ: (Madde madde puan dağılımı) 
-                - ÖNERİLER: (Öğrenci neyi daha iyi yapabilirdi?)
+               LÜTFEN ŞU FORMATTA CEVAP VER:
+                    - TOPLAM PUAN: (Buraya mutlaka 0-100 arası sadece sayı yaz!)
+                    - KRİTER DEĞERLENDİRMESİ: (Madde madde açıkla)
+                    - ÖNERİLER: (Öğrenciye tavsiyeler)
+
+                    DİKKAT: TOPLAM PUAN kısmını asla boş bırakma ve sadece rakam kullan.
                 """
             }
         ],
