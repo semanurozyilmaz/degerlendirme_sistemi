@@ -294,7 +294,7 @@ def reset_password():
         flash("Şifre varsayılan olarak sıfırlandı!", "warning")
     return redirect(url_for('login'))
 
-@app.route('yetkili/sil/<int:id>', methods=['POST'])
+@app.route('/yetkili/sil/<int:id>', methods=['POST'])
 def sil_teslim(id):
     if not session.get('yetkili_giris'):
         return redirect(url_for('login'))
