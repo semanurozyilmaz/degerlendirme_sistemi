@@ -42,6 +42,7 @@ class Odev(db.Model):
     kriterler = db.Column(db.Text, nullable=False) # AI'ya gidecek kriterler
     is_active = db.Column(db.Boolean, default=True) # Öğrenci görsün mü?
     teslimler = db.relationship('OdevTeslim', backref='odev_tanimi', lazy=True)
+    test_case = db.Column(db.Text)
 
 class OdevTeslim(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -69,13 +70,93 @@ with app.app_context():
         db.session.add(varsayilan_ayar)
         db.session.commit()
 
-# --- AI DEĞERLENDİRME FONKSİYONU ---
-import json
+def test_senaryosu_olustur(odev_tanimi, kriterler):
+    try:
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        
+        prompt = f"""
+        Aşağıdaki C programlama ödevi için bir test senaryosu hazırla.
+        ÖDEV: {odev_tanimi}
+        KRİTERLER: {kriterler}
+        
+        Sadece programın 'scanf' veya 'getchar' ile bekleyeceği girişleri (input) aralarında yeni satır (\n) olacak şekilde yaz.
+        Başka hiçbir açıklama yazma. Sadece saf girdi metni ver.
+        """
+        
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+        
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Test case oluşturma hatası: {e}")
+        return "10\n20\n30\n40\n50\n" 
 
-def ai_degerlendir(kod, calisma_sonucu,odev):
+def kod_calistir_ve_test_et(kod_metni, test_input=None):
+    """
+    Kodu derler. Giriş varsa çalıştırır, yoksa sadece derleme başarısını kontrol eder.
+    """
+    file_name = "temp_code.c"
+    exec_name = "./temp_exec"
+    
+    # Kodu dosyaya yaz
+    with open(file_name, "w", encoding="utf-8") as f:
+        f.write(kod_metni)
+    
+    try:
+        # Derleme adımı
+        derleme = subprocess.run(
+            ['gcc', file_name, '-o', 'temp_exec'], 
+            capture_output=True, 
+            text=True
+        )
+        
+        if derleme.returncode != 0:
+            return False, f"Derleme Hatası (Kod çalıştırılamadı):\n{derleme.stderr}"
+
+        # Çalıştırma izni ver
+        if os.path.exists("temp_exec"):
+            os.chmod("temp_exec", stat.S_IRWXU)
+
+        # Eğer test girişi yoksa veya boşsa sadece başarılı derleme döner
+        if not test_input or str(test_input).strip() == "":
+            return True, "Kod başarıyla derlendi. (Özel bir test senaryosu uygulanmadı.)"
+
+        # Test girişi varsa çalıştır
+        calistirma = subprocess.run(
+            [exec_name], 
+            input=test_input, 
+            capture_output=True, 
+            text=True, 
+            timeout=3
+        )
+        
+        if calistirma.returncode != 0:
+            return False, f"Çalışma Zamanı Hatası (Runtime Error):\n{calistirma.stderr}"
+            
+        return True, calistirma.stdout
+
+    except subprocess.TimeoutExpired:
+        return False, "Hata: Kod zaman aşımına uğradı. Sonsuz döngü olabilir."
+    except Exception as e:
+        return False, f"Sistem Hatası: {str(e)}"
+    finally:
+        # Dosyaları temizle
+        if os.path.exists(file_name): os.remove(file_name)
+        if os.path.exists("temp_exec"): 
+            try: os.remove("temp_exec")
+            except: pass
+
+def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
     try:
         client = Groq(api_key=API) 
+        if not client:
+            return 0, "Hata: Groq API anahtarı bulunamadı."
         
+        test_durumu = f"Kullanılan Girdiler: {kullanilan_input}" if kullanilan_input else "Test girişi yok (Sadece derleme kontrolü yapıldı)."
+
         odev_tanimi = odev.tanim
         kriterler = odev.kriterler
         yanit = ""
@@ -88,14 +169,14 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         )
         
         kullanici_mesaji = f"""
-        ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nSONUÇ: {calisma_sonucu}...
+        ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nTEST SENARYOSU: {test_durumu}\nSONUÇ: {calisma_sonucu}...
         LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
                 {{
                 "toplam_puan": (0-100 arası sayı),
                 "degerlendirme": {{
                     "kriter_adi": puan
                 }},  
-                "aciklama": "Öğrenciye genel geri bildirim"
+                "aciklama": "Kodun çalışması ve kriterlere uyumu hakkında detaylı yorum"
                 }}
                 NOT: JSON dışında hiçbir açıklama metni ekleme. Anahtar isminin mutlaka "toplam_puan" olduğundan emin ol.
         """
@@ -122,10 +203,6 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         # Sözlükte 'toplam_puan' yoksa 0, 'aciklama' yoksa 'Yorum yok' döner
         puan = data.get('toplam_puan', data.get('puan', 0))
         not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
-        
-        # Eğer 'oneri' kısmı da varsa onu da mesaja ekleyelim (Opsiyonel)
-        if 'oneri' in data:
-            not_mesaji += f"\nÖneri: {data['oneri']}"
             
         return puan, not_mesaji
 
@@ -136,55 +213,6 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
     # completion.choices[0].message.content satırından hemen sonra:
     print(f"AI'DAN GELEN HAM CEVAP: {yanit}")
     
-
-def kod_calistir_ve_test_et(kod_metni):
-    file_name = "temp_code.c"
-    exec_name = "temp_exec"
-    
-    # 1. Kod dosyasını UTF-8 olarak oluştur
-    with open(file_name, "w", encoding="utf-8") as f:
-        f.write(kod_metni)
-    
-    try:
-        # 2. Derleme adımı
-        derleme = subprocess.run(
-            ['gcc', file_name, '-o', exec_name], 
-            capture_output=True, 
-            text=True
-        )
-        
-        if derleme.returncode != 0:
-            return False, f"Derleme Hatası:\n{derleme.stderr}"
-
-        # 3. İzinleri Ayarlama
-        if os.path.exists(exec_name):
-            st = os.stat(exec_name)
-            os.chmod(exec_name, st.st_mode | stat.S_IEXEC)
-
-        # 4. Çalıştırma adımı
-        test_input = "10\n20\n30\n40\n50\n60\n70\n80\n90\n100\n" 
-        
-        calistirma = subprocess.run(
-            ['./' + exec_name], 
-            input=test_input, 
-            capture_output=True, 
-            text=True, 
-            timeout=3  
-        )
-        
-        if calistirma.returncode != 0:
-            return False, f"Çalışma Hatalı (Runtime Error):\n{calistirma.stderr}"
-            
-        return True, calistirma.stdout
-
-    except subprocess.TimeoutExpired:
-        return False, "Hata: Kod zaman aşımına uğradı (Sonsuz döngü ihtimali)."
-    except Exception as e:
-        return False, f"Beklenmedik Sistem Hatası: {str(e)}"
-    finally:
-        # 5. Temizlik 
-        if os.path.exists(file_name): os.remove(file_name)
-        if os.path.exists(exec_name): os.remove(exec_name)
 
 # --- SAYFALAR ---
 @app.route('/')
@@ -207,12 +235,16 @@ def yukle():
 
         kod_metni = dosya.read().decode('utf-8', errors='ignore')
         secilen_odev = Odev.query.get(odev_id)
+        if not secilen_odev:
+            return render_template('sonuc.html', durum='hata', mesaj="Ödev bulunamadı.")
         
+        hazir_input = getattr(secilen_odev, 'test_case', None)
+
         # 1. Kod Derleme ve Çalıştırma
-        basarili, sonuc_mesaji = kod_calistir_ve_test_et(kod_metni)
+        basarili, sonuc_mesaji = kod_calistir_ve_test_et(kod_metni,test_input=hazir_input)
         print(sonuc_mesaji)
         # 2. AI Değerlendirmesi
-        puan, mesaj = ai_degerlendir(kod_metni, sonuc_mesaji, secilen_odev)
+        puan, mesaj = ai_degerlendir(kod_metni, sonuc_mesaji, secilen_odev,hazir_input)
         
         # 3. Veritabanına Kayıt
         yeni_teslim = OdevTeslim(
@@ -272,8 +304,9 @@ def odev_ekle():
     baslik = request.form.get('baslik')
     tanim = request.form.get('tanim')
     kriterler = request.form.get('kriterler')
-    
-    yeni_odev = Odev(baslik=baslik, tanim=tanim, kriterler=kriterler)
+    hazir_test_case = test_senaryosu_olustur(tanim, kriterler)
+
+    yeni_odev = Odev(baslik=baslik, tanim=tanim, kriterler=kriterler,test_case=hazir_test_case)
     db.session.add(yeni_odev)
     db.session.commit()
     return redirect(url_for('yetkili'))
