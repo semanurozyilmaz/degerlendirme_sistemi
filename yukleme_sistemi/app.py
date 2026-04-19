@@ -92,9 +92,9 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
                 {{
                 "toplam_puan": (0-100 arası sayı),
-                "degerlendirme": {
+                "degerlendirme": {{
                     "kriter_adi": puan
-                },  
+                }},  
                 "aciklama": "Öğrenciye genel geri bildirim"
                 }}
                 NOT: JSON dışında hiçbir açıklama metni ekleme. Anahtar isminin mutlaka "toplam_puan" olduğundan emin ol.
