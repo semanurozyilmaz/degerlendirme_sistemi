@@ -79,7 +79,7 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         odev_tanimi = odev.tanim
         kriterler = odev.kriterler
         yanit = ""
-        
+
         print(f"AI'ya giden kriterler: {odev.kriterler}")
         # AI için detaylı bir talimat 
         sistem_mesaji = (
@@ -90,13 +90,13 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         kullanici_mesaji = f"""
         ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nSONUÇ: {calisma_sonucu}...
         LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
-                {
+                {{
                 "toplam_puan": (0-100 arası sayı),
                 "degerlendirme": {
                     "kriter_adi": puan
-                },
+                },  
                 "aciklama": "Öğrenciye genel geri bildirim"
-                }
+                }}
                 NOT: JSON dışında hiçbir açıklama metni ekleme. Anahtar isminin mutlaka "toplam_puan" olduğundan emin ol.
         """
 
