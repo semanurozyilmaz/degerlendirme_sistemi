@@ -72,7 +72,7 @@ with app.app_context():
 
 def test_senaryosu_olustur(odev_tanimi, kriterler):
     try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = Groq(api_key=os.getenv("GROQ"))
         
         prompt = f"""
         Aşağıdaki C programlama ödevi için bir test senaryosu hazırla.
@@ -89,10 +89,11 @@ def test_senaryosu_olustur(odev_tanimi, kriterler):
             temperature=0.3
         )
         
+        print(completion.choices[0].message.content.strip())
         return completion.choices[0].message.content.strip()
     except Exception as e:
         print(f"Test case oluşturma hatası: {e}")
-        return "10\n20\n30\n40\n50\n" 
+        return 0
 
 def kod_calistir_ve_test_et(kod_metni, test_input=None):
     """
