@@ -195,10 +195,15 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         yanit = completion.choices[0].message.content
         print(yanit)
         # Markdown bloklarını temizle (eğer varsa)
-        if "```json" in yanit:
-            yanit = yanit.split("```json")[1].split("```")[0].strip()
+        match = re.search(r'\{.*\}', yanit, re.DOTALL)
         
-        data = json.loads(yanit)
+        if match:
+            temiz_json = match.group()
+        else:
+            # Eğer süslü parantez bulunamazsa manuel temizlemeyi dene
+            temiz_json = yanit.replace("```json", "").replace("```", "").strip()
+        
+        data = json.loads(temiz_json)
         
         # AI'dan gelen anahtarlara göre veriyi çekiyoruz
         # Sözlükte 'toplam_puan' yoksa 0, 'aciklama' yoksa 'Yorum yok' döner
