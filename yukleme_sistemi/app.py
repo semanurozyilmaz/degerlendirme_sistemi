@@ -78,7 +78,8 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         
         odev_tanimi = odev.tanim
         kriterler = odev.kriterler
-
+        yanit = ""
+        
         print(f"AI'ya giden kriterler: {odev.kriterler}")
         # AI için detaylı bir talimat 
         sistem_mesaji = (
