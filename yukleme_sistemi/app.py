@@ -86,7 +86,18 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
             "açısından değerlendirirsin. Yanıtlarını sadece JSON formatında verirsin."
         )
         
-        kullanici_mesaji = f"ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nSONUÇ: {calisma_sonucu}..."
+        kullanici_mesaji = f"""
+        ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nSONUÇ: {calisma_sonucu}...
+        LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
+                {
+                "toplam_puan": (0-100 arası sayı),
+                "degerlendirme": {
+                    "kriter_adi": puan
+                },
+                "aciklama": "Öğrenciye genel geri bildirim"
+                }
+                NOT: JSON dışında hiçbir açıklama metni ekleme. Anahtar isminin mutlaka "toplam_puan" olduğundan emin ol.
+        """
 
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
