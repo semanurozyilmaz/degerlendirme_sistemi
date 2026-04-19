@@ -213,6 +213,13 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
     # completion.choices[0].message.content satırından hemen sonra:
     print(f"AI'DAN GELEN HAM CEVAP: {yanit}")
     
+def database_sifirla():
+    with app.app_context():
+        print("Veritabanı siliniyor...")
+        db.drop_all() 
+        print("Veritabanı güncel modellerle yeniden oluşturuluyor...")
+        db.create_all()
+        print("İşlem başarıyla tamamlandı! Artık 'test_case' sütunu mevcut.")
 
 # --- SAYFALAR ---
 @app.route('/')
@@ -367,4 +374,6 @@ def sil_odev(id):
         
     return redirect(url_for('yetkili'))
 if __name__ == '__main__':
+    database_sifirla()
     app.run(debug=True, host='0.0.0.0', port=7860)
+    
