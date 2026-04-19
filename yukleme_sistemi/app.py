@@ -108,8 +108,8 @@ def ai_degerlendir(kod, calisma_sonucu,odev):
         
         # AI'dan gelen anahtarlara göre veriyi çekiyoruz
         # Sözlükte 'toplam_puan' yoksa 0, 'aciklama' yoksa 'Yorum yok' döner
-        puan = data.get('toplam_puan', 0)
-        not_mesaji = data.get('aciklama', 'Değerlendirme yapılamadı.')
+        puan = data.get('toplam_puan', data.get('puan', 0))
+        not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
         
         # Eğer 'oneri' kısmı da varsa onu da mesaja ekleyelim (Opsiyonel)
         if 'oneri' in data:
