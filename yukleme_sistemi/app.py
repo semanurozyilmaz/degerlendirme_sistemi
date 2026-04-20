@@ -61,7 +61,6 @@ class Ayarlar(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     yonetici_sifre = db.Column(db.String(100), default=default_key) # Varsayılan şifre
 
-# Tabloyu ilk kez oluştururken varsayılan bir şifre ekleyelim
 with app.app_context():
     db.create_all()
     if not Ayarlar.query.first():
@@ -96,18 +95,13 @@ def test_senaryosu_olustur(odev_tanimi, kriterler):
         return 0
 
 def kod_calistir_ve_test_et(kod_metni, test_input=None):
-    """
-    Kodu derler. Giriş varsa çalıştırır, yoksa sadece derleme başarısını kontrol eder.
-    """
     file_name = "temp_code.c"
     exec_name = "./temp_exec"
     
-    # Kodu dosyaya yaz
     with open(file_name, "w", encoding="utf-8") as f:
         f.write(kod_metni)
     
     try:
-        # Derleme adımı
         derleme = subprocess.run(
             ['gcc', file_name, '-o', 'temp_exec'], 
             capture_output=True, 
@@ -117,15 +111,12 @@ def kod_calistir_ve_test_et(kod_metni, test_input=None):
         if derleme.returncode != 0:
             return False, f"Derleme Hatası (Kod çalıştırılamadı):\n{derleme.stderr}"
 
-        # Çalıştırma izni ver
         if os.path.exists("temp_exec"):
             os.chmod("temp_exec", stat.S_IRWXU)
 
-        # Eğer test girişi yoksa veya boşsa sadece başarılı derleme döner
         if not test_input or str(test_input).strip() == "":
             return True, "Kod başarıyla derlendi. (Özel bir test senaryosu uygulanmadı.)"
 
-        # Test girişi varsa çalıştır
         calistirma = subprocess.run(
             [exec_name], 
             input=test_input, 
@@ -163,11 +154,7 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         yanit = ""
 
         print(f"AI'ya giden kriterler: {odev.kriterler}")
-        # AI için detaylı bir talimat 
-        sistem_mesaji = (
-            "Sen bir C dili eğitmenisin. Öğrenci kodlarını hem mantıksal yapı hem de çalışma başarısı "
-            "açısından değerlendirirsin. Puanlama yaparken insiyatif almazsın. Yanıtlarını sadece JSON formatında verirsin."
-        )
+        sistem_mesaji = os.getenv("SYSTEM_PROMPT")
         
         kullanici_mesaji = f"""
         ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nTEST SENARYOSU: {test_durumu}\nSONUÇ: {calisma_sonucu}...
@@ -188,25 +175,22 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
                 {"role": "system", "content": sistem_mesaji},
                 {"role": "user", "content": kullanici_mesaji}
             ],
-            temperature=0.1 # Daha tutarlı puanlar 
+            temperature=0.0 # Puan tutarlılığı
         )
         
         # ... AI yanıtını aldığın satırdan sonrası ...
         yanit = completion.choices[0].message.content
         print(yanit)
-        # Markdown bloklarını temizle (eğer varsa)
         match = re.search(r'\{.*\}', yanit, re.DOTALL)
         
         if match:
             temiz_json = match.group()
         else:
-            # Eğer süslü parantez bulunamazsa manuel temizlemeyi dene
+            # manuel temizleme
             temiz_json = yanit.replace("```json", "").replace("```", "").strip()
         
         data = json.loads(temiz_json)
-        
-        # AI'dan gelen anahtarlara göre veriyi çekiyoruz
-        # Sözlükte 'toplam_puan' yoksa 0, 'aciklama' yoksa 'Yorum yok' döner
+
         puan = data.get('toplam_puan', data.get('puan', 0))
         not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
             
@@ -216,8 +200,6 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         print(f"JSON Ayrıştırma Hatası: {e} | Gelen Yanıt: {yanit}")
         return 0, f"Değerlendirme formatı hatalı: {str(e)}"
     
-    # completion.choices[0].message.content satırından hemen sonra:
-    print(f"AI'DAN GELEN HAM CEVAP: {yanit}")
     
 def database_sifirla():
     with app.app_context():
