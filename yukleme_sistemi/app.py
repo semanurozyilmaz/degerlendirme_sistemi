@@ -374,6 +374,5 @@ def sil_odev(id):
         
     return redirect(url_for('yetkili'))
 if __name__ == '__main__':
-    database_sifirla()
     app.run(debug=True, host='0.0.0.0', port=7860)
     
