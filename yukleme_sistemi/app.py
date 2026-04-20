@@ -52,6 +52,7 @@ class OdevTeslim(db.Model):
     puan = db.Column(db.Integer)
     geri_bildirim = db.Column(db.Text)
     kod_icerik = db.Column(db.Text)
+    puan_detay = db.Column(db.Text) 
     tarih = db.Column(db.DateTime, default=datetime.utcnow)
 
 with app.app_context():
@@ -161,8 +162,8 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
                 {{
                 "toplam_puan": (0-100 arası sayı),
-                "degerlendirme": {{
-                    "kriter_adi": puan
+                "puan_dagilimi": {{
+                    "kriter_adi": puan_degeri
                 }},  
                 "aciklama": "Kodun sonuç kısmına göre çalışıp çalışmadığı bilgisi, kriterlere uyumu ve puan kırıldıysa nerelerden kırıldığı hakkında detaylı yorum"
                 }}
@@ -193,9 +194,10 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
 
         puan = data.get('toplam_puan', data.get('puan', 0))
         not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
+        dagilim = data.get('puan_dagilimi', {})
             
-        return puan, not_mesaji
-
+        return puan, not_mesaji, dagilim
+    
     except Exception as e:
         print(f"JSON Ayrıştırma Hatası: {e} | Gelen Yanıt: {yanit}")
         return 0, f"Değerlendirme formatı hatalı: {str(e)}"
@@ -209,6 +211,13 @@ def database_sifirla():
         db.create_all()
         print("İşlem başarıyla tamamlandı! Artık 'test_case' sütunu mevcut.")
 
+@app.template_filter('from_json')
+def from_json_filter(s):
+    try:
+        return json.loads(s)
+    except:
+        return {}
+    
 # --- SAYFALAR ---
 @app.route('/')
 def index():
@@ -239,7 +248,7 @@ def yukle():
         basarili, sonuc_mesaji = kod_calistir_ve_test_et(kod_metni,test_input=hazir_input)
         print(sonuc_mesaji)
         # 2. AI Değerlendirmesi
-        puan, mesaj = ai_degerlendir(kod_metni, sonuc_mesaji, secilen_odev,hazir_input)
+        puan, mesaj,dagilim = ai_degerlendir(kod_metni, sonuc_mesaji, secilen_odev,hazir_input)
         
         # 3. Veritabanına Kayıt
         yeni_teslim = OdevTeslim(
@@ -248,7 +257,8 @@ def yukle():
             ogrenci_no=no,
             puan=puan,
             geri_bildirim=mesaj,
-            kod_icerik=kod_metni
+            kod_icerik=kod_metni,
+            puan_detay=json.dumps(dagilim)
         )
         db.session.add(yeni_teslim)
         db.session.commit()
@@ -262,6 +272,7 @@ def yukle():
         db.session.rollback()
         # BAŞARISIZLIK DURUMU
         return render_template('sonuc.html', durum='hata')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -347,13 +358,14 @@ def sil_teslim(id):
     except Exception as e:
         db.session.rollback()
         return f"Silme işlemi sırasında hata oluştu: {e}"
-    
+
 @app.route('/yetkili/sil-odev/<int:id>', methods=['POST'])
 def sil_odev(id):
     if not session.get('yetkili_giris'):
         return redirect(url_for('login'))
     odev = Odev.query.get_or_404(id)
     try:
+        OdevTeslim.query.filter_by(odev_id=id).delete()
         db.session.delete(odev)
         db.session.commit()
     except Exception as e:
@@ -362,5 +374,6 @@ def sil_odev(id):
         
     return redirect(url_for('yetkili'))
 if __name__ == '__main__':
+    database_sifirla()
     app.run(debug=True, host='0.0.0.0', port=7860)
     
