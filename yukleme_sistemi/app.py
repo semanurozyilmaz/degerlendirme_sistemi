@@ -161,7 +161,6 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nTEST SENARYOSU: {test_durumu}\nSONUÇ: {calisma_sonucu}...
         LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
                 {{
-                "toplam_puan": (0-100 arası sayı),
                 "puan_dagilimi": {{
                     "kriter_adi": puan_degeri
                 }},  
@@ -192,9 +191,12 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         
         data = json.loads(temiz_json)
 
-        puan = data.get('toplam_puan', data.get('puan', 0))
-        not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
         dagilim = data.get('puan_dagilimi', {})
+        toplam_hesaplanan = sum(v for v in dagilim.values() if isinstance(v, (int, float)))
+        puan = max(0, min(100, int(toplam_hesaplanan)))
+        
+        not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
+        
             
         return puan, not_mesaji, dagilim
     
