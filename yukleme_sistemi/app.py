@@ -191,14 +191,30 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         
         data = json.loads(temiz_json)
 
-        dagilim = data.get('puan_dagilimi', {})
+        dagilim = data.get('puan_dagilimi', 
+                  data.get('toplam_puan', 
+                  data.get('kriterler',
+                  data.get('kriter_puanlari', 
+                  data.get('puanlar', {})))))
+
+        if isinstance(dagilim, (int, float)):
+            puan = int(dagilim)
+            dagilim_sozlugu = {"Genel Puanlama": puan}
+        elif isinstance(dagilim, dict):
+            puan = sum(v for v in dagilim.values() if isinstance(v, (int, float)))
+            dagilim_sozlugu = dagilim
+        else:
+            puan = 0
+            dagilim_sozlugu = {}
+
+        puan = max(0, min(100, int(puan)))
         toplam_hesaplanan = sum(v for v in dagilim.values() if isinstance(v, (int, float)))
         puan = max(0, min(100, int(toplam_hesaplanan)))
         
         not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
         
             
-        return puan, not_mesaji, dagilim
+        return puan, not_mesaji, dagilim_sozlugu
     
     except Exception as e:
         print(f"JSON Ayrıştırma Hatası: {e} | Gelen Yanıt: {yanit}")
