@@ -166,7 +166,7 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
         # AI için detaylı bir talimat 
         sistem_mesaji = (
             "Sen bir C dili eğitmenisin. Öğrenci kodlarını hem mantıksal yapı hem de çalışma başarısı "
-            "açısından değerlendirirsin. Yanıtlarını sadece JSON formatında verirsin."
+            "açısından değerlendirirsin. Puanlama yaparken insiyatif almazsın. Yanıtlarını sadece JSON formatında verirsin."
         )
         
         kullanici_mesaji = f"""
@@ -177,7 +177,7 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
                 "degerlendirme": {{
                     "kriter_adi": puan
                 }},  
-                "aciklama": "Kodun çalışması ve kriterlere uyumu hakkında detaylı yorum"
+                "aciklama": "Kodun sonuç kısmına göre çalışıp çalışmadığı bilgisi, kriterlere uyumu ve puan kırıldıysa nerelerden kırıldığı hakkında detaylı yorum"
                 }}
                 NOT: JSON dışında hiçbir açıklama metni ekleme. Anahtar isminin mutlaka "toplam_puan" olduğundan emin ol.
         """
