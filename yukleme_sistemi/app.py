@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Response
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -393,4 +394,53 @@ def sil_odev(id):
     return redirect(url_for('yetkili'))
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=7860)
+
+@app.route('/yetkili/odev-indir/<int:id>')
+def odev_indir(id):
+    # Yetki Kontrolü
+    if not session.get('yetkili_giris'):
+        return redirect(url_for('login'))
+        
+    # Ödev ve ona ait tüm teslimleri veritabanından çekme
+    odev = Odev.query.get_or_404(id)
+    teslimler = OdevTeslim.query.filter_by(odev_id=id).all()
     
+    dosya_icerigi = f"====================================================\n"
+    dosya_icerigi += f"        ÖDEV RAPORU: {odev.baslik}\n"
+    dosya_icerigi += f"====================================================\n"
+    dosya_icerigi += f"TANIM: {odev.tanim}\n"
+    dosya_icerigi += f"KRİTERLER: {odev.kriterler}\n"
+    dosya_icerigi += f"TOPLAM TESLİM SAYISI: {len(teslimler)}\n"
+    dosya_icerigi += f"====================================================\n\n"
+    
+    if not teslimler:
+        dosya_icerigi += "Henüz ödev gönderimi yapılmamış.\n"
+    
+    for i, t in enumerate(teslimler, 1):
+        dosya_icerigi += f"{i}. ÖĞRENCİ BİLGİLERİ:\n"
+        dosya_icerigi += f"   - İsim: {t.ogrenci_ad}\n"
+        dosya_icerigi += f"   - Numara: {t.ogrenci_no}\n"
+        dosya_icerigi += f"   - Toplam Puan: {t.puan} / 100\n"
+        
+        # Puan detaylarını çözümleme
+        try:
+            detaylar = json.loads(t.puan_detay)
+            dosya_icerigi += "   - Puan Dağılımı:\n"
+            for kriter, puan_degeri in detaylar.items():
+                dosya_icerigi += f"     * {kriter}: {puan_degeri} Puan\n"
+        except:
+            dosya_icerigi += "   - Puan Dağılımı: Bilgi bulunamadı.\n"
+            
+        dosya_icerigi += f"\nAI GERİ BİLDİRİMİ:\n{t.geri_bildirim}\n"
+        
+        dosya_icerigi += f"\n------------------- ÖĞRENCİ KODU -------------------\n"
+        dosya_icerigi += f"{t.kod_icerik}\n"
+        dosya_icerigi += f"----------------------------------------------------\n\n\n"
+
+    # Dosya adı ödev başlığına göre otomatik belirlenir
+    safe_filename = odev.baslik.replace(" ", "_").replace("/", "-")
+    return Response(
+        dosya_icerigi,
+        mimetype="text/plain",
+        headers={"Content-disposition": f"attachment; filename={safe_filename}_Rapor.txt"}
+    )

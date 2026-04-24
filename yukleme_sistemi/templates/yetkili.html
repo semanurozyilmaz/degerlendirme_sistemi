@@ -165,15 +165,22 @@
                                 </div>
                             </div>
                             <div class="d-flex justify-content-end gap-2 border-top pt-3">
+                                <!-- YENİ: Rapor İndirme Butonu -->
+                                <a href="/yetkili/odev-indir/{{ odev.id }}" class="btn btn-sm btn-dark shadow-sm">
+                                    <i class="fas fa-file-download me-1"></i> Raporu İndir (.txt)
+                                </a>
+
                                 <a href="/yetkili/toggle-odev/{{ odev.id }}"
                                     class="btn btn-sm {{ 'btn-warning' if odev.is_active else 'btn-info' }}">
                                     <i class="fas {{ 'fa-eye-slash' if odev.is_active else 'fa-eye' }} me-1"></i>
                                     Görünürlük
                                 </a>
+
                                 <form action="{{ url_for('sil_odev', id=odev.id) }}" method="POST"
                                     onsubmit="return confirm('Bu ödevi ve bağlı TÜM öğrenci yanıtlarını kalıcı olarak silmek istediğinize emin misiniz?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i
-                                            class="fas fa-trash"></i> Kaldır</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i> Kaldır
+                                    </button>
                                 </form>
                             </div>
                         </div>
