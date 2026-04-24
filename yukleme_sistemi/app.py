@@ -251,6 +251,10 @@ def yukle():
         no = request.form.get('no')
         dosya = request.files.get('dosya')
         
+        if not all([ad, no, odev_id, dosya]):
+            flash("Eksik bilgi gönderildi.", "warning")
+            return redirect(url_for('index'))
+
         if not dosya or not odev_id:
             # Teknik hata göstermeden sonuç sayfasına hata durumunu gönder
             return render_template('sonuc.html', durum='hata')
@@ -267,6 +271,10 @@ def yukle():
         print(sonuc_mesaji)
         # 2. AI Değerlendirmesi
         puan, mesaj,dagilim = ai_degerlendir(kod_metni, sonuc_mesaji, secilen_odev,hazir_input)
+        
+        if puan == 0 and "Değerlendirme yapılamadı" in mesaj:
+            flash("Yapay zeka şu an meşgul. Lütfen 1-2 dakika sonra tekrar yükleyin.", "info")
+            return redirect(url_for('index'))
         
         # 3. Veritabanına Kayıt
         yeni_teslim = OdevTeslim(
