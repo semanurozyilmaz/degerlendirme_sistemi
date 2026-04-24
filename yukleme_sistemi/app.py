@@ -1,5 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-from flask import Response
+from flask import Flask, Response, render_template, request, redirect, url_for, session, flash
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -390,10 +389,8 @@ def sil_odev(id):
     except Exception as e:
         db.session.rollback()
         print(f"Hata: {e}")
-        
+
     return redirect(url_for('yetkili'))
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=7860)
 
 @app.route('/yetkili/odev-indir/<int:id>')
 def odev_indir(id):
@@ -444,3 +441,7 @@ def odev_indir(id):
         mimetype="text/plain",
         headers={"Content-disposition": f"attachment; filename={safe_filename}_Rapor.txt"}
     )
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=7860)
+
