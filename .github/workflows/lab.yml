@@ -1,0 +1,17 @@
+name: Sync to Hugging Face
+on:
+  push:
+    branches: [main]
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Push to hub
+        env:
+          HF_TOKEN: ${{ secrets.LAB_TOKEN }} # GitHub'a eklediğin Secret adı
+        run: git push --force https://buubm:$HF_TOKEN@huggingface.co/spaces/buubm/lab main
