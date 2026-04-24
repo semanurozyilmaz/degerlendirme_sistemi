@@ -358,7 +358,7 @@ def sifre_degistir():
 def reset_password():
     ayar = Ayarlar.query.first()
     if ayar:
-        ayar.yonetici_sifre = "123"
+        ayar.yonetici_sifre = default_key
         db.session.commit()
         flash("Şifre varsayılan olarak sıfırlandı!", "warning")
     return redirect(url_for('login'))
