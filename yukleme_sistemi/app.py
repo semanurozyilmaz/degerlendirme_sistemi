@@ -295,6 +295,20 @@ def sil_odev(id):
     db.session.commit()
     return redirect(url_for('yetkili'))
 
+@app.route('/yetkili/sil/<int:id>', methods=['POST'])
+def sil_teslim(id):
+    if not session.get('yetkili_giris'):
+        return redirect(url_for('login'))
+
+    teslim = OdevTeslim.query.get_or_404(id)
+    try:
+        db.session.delete(teslim)
+        db.session.commit()
+        return redirect(url_for('yetkili'))
+    except Exception as e:
+        db.session.rollback()
+        return f"Silme işlemi sırasında hata oluştu: {e}"
+
 @app.route('/yetkili/odev-indir/<int:id>')
 @login_required
 def odev_indir(id):
@@ -306,6 +320,26 @@ def odev_indir(id):
         dosya_icerigi += f"{i}. {t.ogrenci_ad} ({t.ogrenci_no}) - Puan: {t.puan}\nDurum: {t.durum}\nGeribildirim: {t.geri_bildirim}\n{'-'*20}\n{t.kod_icerik}\n\n"
     
     return Response(dosya_icerigi, mimetype="text/plain", headers={"Content-disposition": f"attachment; filename={odev.id}_Rapor.txt"})
+
+@app.route('/yetkili/sifre-degistir', methods=['POST'])
+@login_required
+def sifre_degistir():
+    yeni_sifre = request.form.get('yeni_sifre')
+    if yeni_sifre:
+        ayar = Ayarlar.query.first()
+        ayar.yonetici_sifre = yeni_sifre
+        db.session.commit()
+        flash("Şifre başarıyla güncellendi!", "success")
+    return redirect(url_for('yetkili'))
+
+@app.route('/reset-password-to-default')
+def reset_password():
+    ayar = Ayarlar.query.first()
+    if ayar:
+        ayar.yonetici_sifre = default_key
+        db.session.commit()
+        flash("Şifre varsayılan olarak sıfırlandı!", "warning")
+    return redirect(url_for('login'))
 
 # --- BAŞLATMA ---
 
