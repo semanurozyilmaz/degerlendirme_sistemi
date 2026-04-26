@@ -361,6 +361,17 @@ def reset_password():
         flash("Şifre varsayılan olarak sıfırlandı!", "warning")
     return redirect(url_for('login'))
 
+@app.route('/yetkili/yeniden-dene/<int:id>')
+@login_required
+def yeniden_dene(id):
+    teslim = db.session.get(OdevTeslim, id)
+    if teslim:
+        teslim.durum = 'bekliyor'
+        teslim.deneme_sayisi = 0
+        db.session.commit()
+        flash("Ödev yeniden sıraya alındı.", "success")
+    return redirect(url_for('yetkili'))
+
 # --- BAŞLATMA ---
 
 if __name__ == '__main__':
