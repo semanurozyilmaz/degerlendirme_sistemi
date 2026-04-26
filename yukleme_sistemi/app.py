@@ -194,11 +194,11 @@ def database_sifirla():
             print("Veritabanı oturumları temizleniyor...")
             db.session.remove()
             
-            print("Tablolar siliniyor (Cascade)...")
+            print("Tablolar siliniyor...")
             if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI']:
-                db.session.execute(text('DROP TABLE IF EXISTS odev_teslim CASCADE'))
-                db.session.execute(text('DROP TABLE IF EXISTS odev CASCADE'))
-                db.session.execute(text('DROP TABLE IF EXISTS ayarlar CASCADE'))
+                db.session.execute(text('DROP TABLE IF EXISTS odev_teslim'))
+                db.session.execute(text('DROP TABLE IF EXISTS odev'))
+                db.session.execute(text('DROP TABLE IF EXISTS ayarlar'))
                 db.session.commit()
             else:
                 db.drop_all()
@@ -364,7 +364,6 @@ def reset_password():
 # --- BAŞLATMA ---
 
 if __name__ == '__main__':
-    database_sifirla()
     with app.app_context():
         db.create_all()
         if not Ayarlar.query.first():
