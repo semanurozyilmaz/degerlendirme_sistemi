@@ -1,63 +1,25 @@
+<!DOCTYPE html>
 <html lang="tr">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yönetici Paneli</title>
+    <title>Yönetim Paneli</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --primary-bg: #f8fafc;
-            --accent-color: #4361ee;
-            --sidebar-dark: #1e293b;
-        }
-
         body {
-            background-color: var(--primary-bg);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
         }
 
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        /* Tablo Başlık Düzeltmesi */
         .table-dark {
-            background-color: var(--sidebar-dark) !important;
-            border-color: var(--sidebar-dark) !important;
+            background-color: #1e293b !important;
         }
 
-        .table-dark th {
-            color: #fff !important;
-            border-bottom: none;
-        }
-
-        .accordion-button:not(.collapsed) {
-            background-color: #eff6ff;
-            color: #1e40af;
-            box-shadow: none;
-        }
-
-        .accordion-button:focus {
-            box-shadow: none;
-            border-color: rgba(0, 0, 0, .125);
-        }
-
-        .badge-puan {
-            font-size: 0.9rem;
-            padding: 0.5rem 0.8rem;
-            border-radius: 8px;
-        }
-
-        .kriter-box {
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
+        .kriter-badge {
+            font-size: 0.75rem;
+            background: #e2e8f0;
             padding: 4px 10px;
-            font-size: 0.8rem;
+            border-radius: 6px;
             margin: 2px;
             display: inline-block;
         }
@@ -67,121 +29,57 @@
             color: #e2e8f0;
             padding: 1.5rem;
             border-radius: 8px;
-            font-size: 0.85rem;
         }
     </style>
 </head>
 
 <body class="container py-5">
-    <!-- Üst Başlık -->
     <div
-        class="d-flex justify-content-between align-items-center mb-5 bg-white p-3 rounded-3 shadow-sm border-start border-primary border-4">
-        <div>
-            <h2 class="mb-0 fw-bold text-dark"><i class="fas fa-user-shield me-2 text-primary"></i>Yönetim Paneli</h2>
-        </div>
+        class="d-flex justify-content-between align-items-center mb-5 bg-white p-3 rounded shadow-sm border-start border-primary border-4">
+        <h2 class="mb-0 fw-bold text-dark"><i class="fas fa-user-shield me-2 text-primary"></i>Yönetim Paneli</h2>
         <div class="d-flex gap-2">
-            <a href="/" class="btn btn-outline-primary btn-sm rounded-pill px-3"><i
-                    class="fas fa-external-link-alt me-1"></i>Öğrenci Sayfası</a>
-            <a href="/logout" class="btn btn-danger btn-sm rounded-pill px-3"><i
-                    class="fas fa-sign-out-alt me-1"></i>Çıkış</a>
+            <a href="/" class="btn btn-outline-primary btn-sm rounded-pill px-3">Ana Sayfa</a>
+            <a href="/logout" class="btn btn-danger btn-sm rounded-pill px-3">Çıkış</a>
         </div>
     </div>
 
-    <!-- Bildirimler -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0" role="alert">
-        <i class="fas fa-info-circle me-2"></i> {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
-
-    <div class="row g-4">
-        <!-- Sol Kolon: Yeni Ödev Ekleme -->
+    <div class="row g-4 mb-5">
         <div class="col-lg-4">
-            <div class="card h-100 border-top border-primary border-4 shadow-sm">
-                <div class="card-header bg-white fw-bold py-3">Yeni Ödev Tanımla</div>
+            <div class="card border-0 shadow-sm border-top border-primary border-4">
+                <div class="card-header bg-white fw-bold py-3">Yeni Ödev</div>
                 <div class="card-body">
                     <form action="/yetkili/odev-ekle" method="post">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Ödev Başlığı</label>
-                            <input type="text" name="baslik" class="form-control bg-light border-0"
-                                placeholder="Örn: Hafta 3: Diziler" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Ödev Tanımı</label>
-                            <textarea name="tanim" class="form-control bg-light border-0" rows="3"
-                                placeholder="Ödev içeriğini buraya yazın..." required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Puanlama Kriterleri</label>
-                            <textarea name="kriterler" class="form-control bg-light border-0" rows="3"
-                                placeholder="Dizi kullanımı 40p, Fonksiyon 30p..." required></textarea>
-                            <div class="form-text" style="font-size: 0.7rem;">AI bu kriterlere göre otomatik puanlama
-                                yapacaktır.</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">
-                            <i class="fas fa-plus-circle me-1"></i> Ödevi Yayınla
-                        </button>
+                        <input type="text" name="baslik" class="form-control mb-3" placeholder="Ödev Başlığı" required>
+                        <textarea name="tanim" class="form-control mb-3" placeholder="Açıklama" required></textarea>
+                        <textarea name="kriterler" class="form-control mb-3" placeholder="Kriterler"
+                            required></textarea>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Yayınla</button>
                     </form>
                 </div>
             </div>
         </div>
-
-        <!-- Sağ Kolon: Mevcut Ödevler Listesi -->
         <div class="col-lg-8">
-            <h4 class="mb-3 fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Aktif Ödevler</h4>
-            <div class="accordion shadow-sm rounded-3 overflow-hidden" id="odevAccordion">
+            <h4 class="fw-bold mb-3">Aktif Ödevler</h4>
+            <div class="accordion shadow-sm" id="acc">
                 {% for odev in tum_odevler %}
-                <div class="accordion-item border-0 border-bottom">
+                <div class="accordion-item">
                     <h2 class="accordion-header">
-                        <!-- 'querySelectorAll' hatasını önlemek için 'data-bs-target' CSS güvenli bir formata getirildi -->
-                        <button class="accordion-button collapsed py-3 fw-semibold" type="button"
-                            data-bs-toggle="collapse" data-bs-target="#collapse-odev-{{ odev.id }}">
-                            <div class="d-flex justify-content-between align-items-center w-100 me-3">
-                                <div>
-                                    <span>{{ odev.baslik }}</span>
-                                    <span class="badge {{ 'bg-success' if odev.is_active else 'bg-secondary' }} ms-2">
-                                        {{ 'Yayında' if odev.is_active else 'Gizli' }}
-                                    </span>
-                                </div>
-                            </div>
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#c{{ odev.id }}">
+                            {{ odev.baslik }}
+                            <span class="badge {{ 'bg-success' if odev.is_active else 'bg-secondary' }} ms-2">
+                                {{ 'Yayında' if odev.is_active else 'Gizli' }}
+                            </span>
                         </button>
                     </h2>
-                    <div id="collapse-odev-{{ odev.id }}" class="accordion-collapse collapse"
-                        data-bs-parent="#odevAccordion">
-                        <div class="accordion-body bg-white">
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label class="fw-bold small text-primary d-block mb-1">Açıklama:</label>
-                                    <p class="text-muted small mb-0">{{ odev.tanim }}</p>
-                                </div>
-                                <div class="col-md-6 border-start">
-                                    <label class="fw-bold small text-primary d-block mb-1">Kriterler:</label>
-                                    <p class="text-muted small mb-0">{{ odev.kriterler }}</p>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-end gap-2 border-top pt-3">
-                                <!-- YENİ: Rapor İndirme Butonu -->
-                                <a href="/yetkili/odev-indir/{{ odev.id }}" class="btn btn-sm btn-dark shadow-sm">
-                                    <i class="fas fa-file-download me-1"></i> Raporu İndir (.txt)
-                                </a>
-
-                                <a href="/yetkili/toggle-odev/{{ odev.id }}"
-                                    class="btn btn-sm {{ 'btn-warning' if odev.is_active else 'btn-info' }}">
-                                    <i class="fas {{ 'fa-eye-slash' if odev.is_active else 'fa-eye' }} me-1"></i>
-                                    Görünürlük
-                                </a>
-
-                                <form action="{{ url_for('sil_odev', id=odev.id) }}" method="POST"
-                                    onsubmit="return confirm('Bu ödevi ve bağlı TÜM öğrenci yanıtlarını kalıcı olarak silmek istediğinize emin misiniz?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-trash"></i> Kaldır
-                                    </button>
-                                </form>
+                    <div id="c{{ odev.id }}" class="accordion-collapse collapse" data-bs-parent="#acc">
+                        <div class="accordion-body">
+                            <p class="small text-muted">{{ odev.tanim }}</p>
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                <a href="/yetkili/odev-indir/{{ odev.id }}" class="btn btn-sm btn-dark">İndir</a>
+                                <a href="/yetkili/toggle-odev/{{ odev.id }}" class="btn btn-sm btn-warning">Değiştir</a>
+                                <form action="/yetkili/sil-odev/{{ odev.id }}" method="POST"><button type="submit"
+                                        class="btn btn-sm btn-danger">Sil</button></form>
                             </div>
                         </div>
                     </div>
@@ -191,113 +89,67 @@
         </div>
     </div>
 
-    <!-- Öğrenci Teslimleri Tablosu -->
-    <div class="mt-5">
-        <h4 class="mb-3 fw-bold text-dark"><i class="fas fa-user-graduate me-2 text-primary"></i>Öğrenci Teslimleri</h4>
-        <div class="card shadow-sm overflow-hidden">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-dark">
-                        <tr>
-                            <th class="ps-3 py-3">Ödev Adı</th>
-                            <th class="py-3">Öğrenci Bilgileri</th>
-                            <th class="py-3">Puan</th>
-                            <th class="py-3 text-center">İncele</th>
-                            <th class="py-3 text-end pe-3">Sil</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for teslim in teslimler %}
-                        <tr>
-                            <td class="ps-3"><span class="fw-bold text-dark small">{{ teslim.odev_tanimi.baslik
-                                    }}</span></td>
-                            <td>
-                                <div class="fw-semibold">{{ teslim.ogrenci_ad }}</div>
-                                <div class="text-muted" style="font-size: 0.8rem;">No: {{ teslim.ogrenci_no }}</div>
-                            </td>
-                            <td><span class="badge bg-primary badge-puan">{{ teslim.puan }}</span></td>
-                            <td class="text-center">
-                                <button class="btn btn-sm btn-outline-primary px-3 rounded-pill"
-                                    onclick="koduGoster('{{ teslim.id }}')">
-                                    <i class="fas fa-search-plus me-1"></i> Detaylar
-                                </button>
-
-                                <!-- Gizli Veri Alanları -->
-                                <div id="kod-{{ teslim.id }}" style="display:none;">{{ teslim.kod_icerik }}</div>
-                                <div id="not-{{ teslim.id }}" style="display:none;">{{ teslim.geri_bildirim }}</div>
-                                <div id="detay-{{ teslim.id }}" style="display:none;">{{ teslim.puan_detay }}</div>
-                            </td>
-                            <td class="text-end pe-3">
-                                <form action="{{ url_for('sil_teslim', id=teslim.id) }}" method="POST"
-                                    onsubmit="return confirm('Bu öğrenci teslimini silmek istediğinize emin misiniz?');">
-                                    <button type="submit" class="btn btn-sm text-danger border-0 bg-transparent"
-                                        title="Sil">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <h4 class="fw-bold mb-3">Teslimler</h4>
+    <div class="card shadow-sm overflow-hidden">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="ps-3">Öğrenci</th>
+                    <th>Ödev</th>
+                    <th>Durum</th>
+                    <th>Puan</th>
+                    <th class="text-center">Detay</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for teslim in teslimler %}
+                <tr>
+                    <td class="ps-3 fw-bold">{{ teslim.ogrenci_ad }}<br><small class="text-muted">{{ teslim.ogrenci_no
+                            }}</small></td>
+                    <td>{{ teslim.odev_tanimi.baslik }}</td>
+                    <td>
+                        {% if teslim.durum == 'bekliyor' %}
+                        <span class="badge bg-secondary">Sırada</span>
+                        {% elif teslim.durum == 'isleniyor' %}
+                        <span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin"></i> İşleniyor</span>
+                        {% elif teslim.durum == 'tamamlandi' %}
+                        <span class="badge bg-success">Tamamlandı</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-primary">{{ teslim.puan if teslim.durum == 'tamamlandi' else '--'
+                            }}</span></td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3"
+                            onclick="koduGoster('{{ teslim.id }}')">İncele</button>
+                        <div id="kod-{{ teslim.id }}" style="display:none;">{{ teslim.kod_icerik }}</div>
+                        <div id="not-{{ teslim.id }}" style="display:none;">{{ teslim.geri_bildirim }}</div>
+                        <div id="detay-{{ teslim.id }}" style="display:none;">{{ teslim.puan_detay }}</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    <!-- Güvenlik Ayarları -->
-    <div class="card mt-5 border-0 bg-white shadow-sm overflow-hidden">
-        <div class="card-body py-4 px-4 border-start border-warning border-4">
-            <div class="row align-items-center">
-                <div class="col-md-7">
-                    <h5 class="fw-bold mb-1"><i class="fas fa-shield-alt me-2 text-warning"></i>Panel Güvenliği</h5>
-                    <p class="text-muted small mb-0">Yönetici giriş şifresini buradan güncelleyebilirsiniz.</p>
-                </div>
-                <div class="col-md-5">
-                    <form action="/yetkili/sifre-degistir" method="post" class="d-flex gap-2">
-                        <input type="password" name="yeni_sifre" class="form-control"
-                            placeholder="Yeni yönetici şifresi..." required>
-                        <button type="submit" class="btn btn-warning fw-bold text-nowrap px-4">Güncelle</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Detay Modal -->
+    <!-- Modal -->
     <div class="modal fade" id="detayModal" tabindex="-1">
         <div class="modal-dialog modal-xl">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-dark text-white border-0">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-laptop-code me-2"></i>Öğrenci Ödev Detayları</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Ödev Detayı</h5><button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
                     <div class="row g-4">
-                        <!-- AI Analiz Paneli -->
                         <div class="col-lg-5">
-                            <div class="mb-4">
-                                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-chart-pie me-2"></i>Puan Dağılımı
-                                </h6>
-                                <div id="modalDagilim" class="d-flex flex-column gap-2">
-                                    <!-- Dinamik olarak doldurulur -->
-                                </div>
-                            </div>
-
-                            <hr class="opacity-10">
-
-                            <div>
-                                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-robot me-2"></i>AI Geri Bildirimi
-                                </h6>
-                                <div id="modalNot" class="p-3 bg-light rounded-3 border-0 text-dark"
-                                    style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6;"></div>
-                            </div>
+                            <h6 class="fw-bold text-primary">Puan Dağılımı</h6>
+                            <div id="modalDagilim" class="d-flex flex-column gap-2 mb-4"></div>
+                            <h6 class="fw-bold text-primary">Analiz</h6>
+                            <div id="modalNot" class="p-3 bg-light rounded small"></div>
                         </div>
-
-                        <!-- Kod Paneli -->
                         <div class="col-lg-7">
-                            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-code me-2"></i>Gönderilen Kod</h6>
-                            <pre id="modalKod" class="m-0"
-                                style="max-height: 600px; overflow-y: auto;"><code class="language-c"></code></pre>
+                            <h6 class="fw-bold text-primary">Kod</h6>
+                            <pre id="modalKod" class="m-0 overflow-auto" style="max-height: 500px;"><code></code></pre>
                         </div>
                     </div>
                 </div>
@@ -308,33 +160,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function koduGoster(id) {
-            const kodIcerigi = document.getElementById('kod-' + id).innerText;
-            const aiNotu = document.getElementById('not-' + id).innerText;
-            const detayJson = document.getElementById('detay-' + id).innerText;
-
-            document.getElementById('modalKod').querySelector('code').innerText = kodIcerigi;
-            document.getElementById('modalNot').innerText = aiNotu;
-
+            document.getElementById('modalKod').querySelector('code').innerText = document.getElementById('kod-' + id).innerText;
+            document.getElementById('modalNot').innerText = document.getElementById('not-' + id).innerText;
             const dagilimDiv = document.getElementById('modalDagilim');
             dagilimDiv.innerHTML = "";
-
             try {
-                const data = JSON.parse(detayJson);
-                if (Object.keys(data).length === 0) throw new Error();
-
-                for (const [kriter, puan] of Object.entries(data)) {
-                    const row = document.createElement('div');
-                    row.className = "d-flex justify-content-between align-items-center p-2 rounded bg-light border-start border-primary border-3";
-                    row.style.fontSize = "0.85rem";
-                    row.innerHTML = `<span class="fw-semibold text-dark">${kriter}</span> <span class="badge bg-primary rounded-pill px-3">${puan} Puan</span>`;
-                    dagilimDiv.appendChild(row);
+                const data = JSON.parse(document.getElementById('detay-' + id).innerText);
+                for (const [k, p] of Object.entries(data)) {
+                    dagilimDiv.innerHTML += `<div class="d-flex justify-content-between p-2 bg-white shadow-sm rounded border-start border-primary border-3"><span>${k}</span><span class="badge bg-primary">${p}</span></div>`;
                 }
-            } catch (e) {
-                dagilimDiv.innerHTML = "<div class='alert alert-secondary py-2 small'><i class='fas fa-info-circle me-1'></i> Puan detayları bu teslim için henüz işlenmemiş veya eski bir sürüm.</div>";
-            }
-
-            const myModal = new bootstrap.Modal(document.getElementById('detayModal'));
-            myModal.show();
+            } catch (e) { dagilimDiv.innerHTML = "Bekliyor..."; }
+            new bootstrap.Modal(document.getElementById('detayModal')).show();
         }
     </script>
 </body>

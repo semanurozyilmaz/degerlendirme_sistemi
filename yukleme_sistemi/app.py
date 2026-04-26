@@ -8,22 +8,55 @@ import subprocess
 import os
 import json
 import stat
+import threading
+import time
 from dotenv import load_dotenv
 
-app = Flask(__name__,template_folder='templates',
-            static_folder='static')
+app = Flask(__name__, template_folder='templates', static_folder='static')
 load_dotenv()
+
+# --- YAPILANDIRMA ---
 app.secret_key = os.getenv("SECRET_KEY")
 database_url = os.getenv("DATABASE_URL")
 API = os.getenv("GROQ")
 default_key = os.getenv("DEFAULT_YETKILI_SIFRE")
+
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///local.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-with app.app_context():
-    db.create_all()
+
+# --- VERİTABANI MODELLERİ ---
+
+class Odev(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    baslik = db.Column(db.String(200), nullable=False)
+    tanim = db.Column(db.Text, nullable=False)
+    kriterler = db.Column(db.Text, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    teslimler = db.relationship('OdevTeslim', backref='odev_tanimi', lazy=True, cascade="all, delete-orphan")
+    test_case = db.Column(db.Text)
+
+class OdevTeslim(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    odev_id = db.Column(db.Integer, db.ForeignKey('odev.id'))
+    ogrenci_ad = db.Column(db.String(100))
+    ogrenci_no = db.Column(db.String(20))
+    puan = db.Column(db.Integer, default=0)
+    geri_bildirim = db.Column(db.Text, default="Sıraya alındı, değerlendirme bekleniyor...")
+    kod_icerik = db.Column(db.Text)
+    puan_detay = db.Column(db.Text, default="{}")
+    # Durum: 'bekliyor', 'isleniyor', 'tamamlandi', 'hata'
+    durum = db.Column(db.String(20), default='bekliyor')
+    tarih = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Ayarlar(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    yonetici_sifre = db.Column(db.String(100), default=default_key)
+
+# --- YARDIMCI FONKSİYONLAR ---
 
 def login_required(f):
     @wraps(f)
@@ -34,139 +67,62 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- VERİTABANI MODELİ ---
-class Odev(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    baslik = db.Column(db.String(200), nullable=False)
-    tanim = db.Column(db.Text, nullable=False)
-    kriterler = db.Column(db.Text, nullable=False) # AI'ya gidecek kriterler
-    is_active = db.Column(db.Boolean, default=True) # Öğrenci görsün mü?
-    teslimler = db.relationship('OdevTeslim', backref='odev_tanimi', lazy=True)
-    test_case = db.Column(db.Text)
-
-class OdevTeslim(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    odev_id = db.Column(db.Integer, db.ForeignKey('odev.id')) # Hangi ödevin teslimi?
-    ogrenci_ad = db.Column(db.String(100))
-    ogrenci_no = db.Column(db.String(20))
-    puan = db.Column(db.Integer)
-    geri_bildirim = db.Column(db.Text)
-    kod_icerik = db.Column(db.Text)
-    puan_detay = db.Column(db.Text) 
-    tarih = db.Column(db.DateTime, default=datetime.utcnow)
-
-with app.app_context():
-    db.create_all()
-
-class Ayarlar(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    yonetici_sifre = db.Column(db.String(100), default=default_key) # Varsayılan şifre
-
-with app.app_context():
-    db.create_all()
-    if not Ayarlar.query.first():
-        default_sifre = os.getenv("DEFAULT_YETKILI_SIFRE")
-        varsayilan_ayar = Ayarlar(yonetici_sifre=default_sifre)
-        db.session.add(varsayilan_ayar)
-        db.session.commit()
-
 def test_senaryosu_olustur(odev_tanimi, kriterler):
     try:
-        client = Groq(api_key=os.getenv("GROQ"))
-        
-        prompt = f"""
-        Aşağıdaki C programlama ödevi için bir test senaryosu hazırla.
-        ÖDEV: {odev_tanimi}
-        KRİTERLER: {kriterler}
-        
-        Sadece programın 'scanf' veya 'getchar' ile bekleyeceği girişleri (input) aralarında yeni satır (\n) olacak şekilde yaz.
-        Başka hiçbir açıklama yazma. Sadece saf girdi metni ver.
-        """
-        
+        client = Groq(api_key=API)
+        prompt = f"C programlama ödevi için sadece girdi (input) senaryosu hazırla.\nÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nSadece saf girdi metni ver."
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
         )
-        
-        print(completion.choices[0].message.content.strip())
         return completion.choices[0].message.content.strip()
     except Exception as e:
         print(f"Test case oluşturma hatası: {e}")
-        return 0
+        return ""
 
 def kod_calistir_ve_test_et(kod_metni, test_input=None):
-    file_name = "temp_code.c"
-    exec_name = "./temp_exec"
+    # Çakışmayı önlemek için thread-safe isimlendirme
+    unique_id = f"{int(time.time())}_{os.getpid()}"
+    file_name = f"temp_code_{unique_id}.c"
+    exec_name = f"./temp_exec_{unique_id}"
     
     with open(file_name, "w", encoding="utf-8") as f:
         f.write(kod_metni)
     
     try:
-        derleme = subprocess.run(
-            ['gcc', file_name, '-o', 'temp_exec'], 
-            capture_output=True, 
-            text=True
-        )
-        
+        derleme = subprocess.run(['gcc', file_name, '-o', exec_name], capture_output=True, text=True)
         if derleme.returncode != 0:
-            return False, f"Derleme Hatası (Kod çalıştırılamadı):\n{derleme.stderr}"
+            return False, f"Derleme Hatası:\n{derleme.stderr}"
 
-        if os.path.exists("temp_exec"):
-            os.chmod("temp_exec", stat.S_IRWXU)
+        if os.path.exists(exec_name):
+            os.chmod(exec_name, stat.S_IRWXU)
 
-        if not test_input or str(test_input).strip() == "":
-            return True, "Kod başarıyla derlendi. (Özel bir test senaryosu uygulanmadı.)"
-
-        calistirma = subprocess.run(
-            [exec_name], 
-            input=test_input, 
-            capture_output=True, 
-            text=True, 
-            timeout=3
-        )
-        
-        if calistirma.returncode != 0:
-            return False, f"Çalışma Zamanı Hatası (Runtime Error):\n{calistirma.stderr}"
-            
+        calistirma = subprocess.run([exec_name], input=test_input, capture_output=True, text=True, timeout=3)
         return True, calistirma.stdout
-
     except subprocess.TimeoutExpired:
-        return False, "Hata: Kod zaman aşımına uğradı. Sonsuz döngü olabilir."
+        return False, "Hata: Kod zaman aşımına uğradı."
     except Exception as e:
         return False, f"Sistem Hatası: {str(e)}"
     finally:
-        # Dosyaları temizle
         if os.path.exists(file_name): os.remove(file_name)
-        if os.path.exists("temp_exec"): 
-            try: os.remove("temp_exec")
+        if os.path.exists(exec_name):
+            try: os.remove(exec_name)
             except: pass
 
-def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
+def ai_degerlendir(kod, calisma_sonucu, odev, kullanilan_input):
     try:
-        client = Groq(api_key=API) 
-        if not client:
-            return 0, "Hata: Groq API anahtarı bulunamadı."
-        
-        test_durumu = f"Kullanılan Girdiler: {kullanilan_input}" if kullanilan_input else "Test girişi yok (Sadece derleme kontrolü yapıldı)."
-
-        odev_tanimi = odev.tanim
-        kriterler = odev.kriterler
-        yanit = ""
-
-        print(f"AI'ya giden kriterler: {odev.kriterler}")
-        sistem_mesaji = os.getenv("SYSTEM_PROMPT")
+        client = Groq(api_key=API)
+        test_durumu = f"Kullanılan Girdiler: {kullanilan_input}" if kullanilan_input else "Test girişi yok."
+        sistem_mesaji = os.getenv("SYSTEM_PROMPT", "Sen bir C programlama öğretmenisin.")
         
         kullanici_mesaji = f"""
-        ÖDEV: {odev_tanimi}\nKRİTERLER: {kriterler}\nKOD: {kod}\nTEST SENARYOSU: {test_durumu}\nSONUÇ: {calisma_sonucu}...
+        ÖDEV: {odev.tanim}\nKRİTERLER: {odev.kriterler}\nKOD: {kod}\nTEST SENARYOSU: {test_durumu}\nSONUÇ: {calisma_sonucu}
         LÜTFEN SADECE AŞAĞIDAKİ JSON FORMATINDA CEVAP VER:
-                {{
-                "puan_dagilimi": {{
-                    "kriter_adi": puan_degeri
-                }},  
-                "aciklama": "Kodun sonuç kısmına göre çalışıp çalışmadığı bilgisi, kriterlere uyumu ve puan kırıldıysa nerelerden kırıldığı hakkında detaylı yorum"
-                }}
-                NOT: JSON dışında hiçbir açıklama metni ekleme. Anahtar isminin mutlaka "toplam_puan" olduğundan emin ol.
+        {{
+            "puan_dagilimi": {{"kriter": puan}},
+            "aciklama": "Değerlendirme yorumu"
+        }}
         """
 
         completion = client.chat.completions.create(
@@ -175,68 +131,81 @@ def ai_degerlendir(kod, calisma_sonucu,odev,kullanilan_input):
                 {"role": "system", "content": sistem_mesaji},
                 {"role": "user", "content": kullanici_mesaji}
             ],
-            temperature=0.0 # Puan tutarlılığı
+            temperature=0.0,
+            response_format={"type": "json_object"}
         )
         
-        # ... AI yanıtını aldığın satırdan sonrası ...
-        yanit = completion.choices[0].message.content
-        print(yanit)
-        match = re.search(r'\{.*\}', yanit, re.DOTALL)
-        
-        if match:
-            temiz_json = match.group()
-        else:
-            # manuel temizleme
-            temiz_json = yanit.replace("```json", "").replace("```", "").strip()
-        
-        data = json.loads(temiz_json)
-
-        dagilim = data.get('puan_dagilimi', 
-                  data.get('toplam_puan', 
-                  data.get('kriterler',
-                  data.get('kriter_puanlari', 
-                  data.get('puanlar', {})))))
-
-        if isinstance(dagilim, (int, float)):
-            puan = int(dagilim)
-            dagilim_sozlugu = {"Genel Puanlama": puan}
-        elif isinstance(dagilim, dict):
-            puan = sum(v for v in dagilim.values() if isinstance(v, (int, float)))
-            dagilim_sozlugu = dagilim
-        else:
-            puan = 0
-            dagilim_sozlugu = {}
-
+        data = json.loads(completion.choices[0].message.content)
+        dagilim = data.get('puan_dagilimi', {})
+        puan = sum(v for v in dagilim.values() if isinstance(v, (int, float)))
         puan = max(0, min(100, int(puan)))
-        toplam_hesaplanan = sum(v for v in dagilim.values() if isinstance(v, (int, float)))
-        puan = max(0, min(100, int(toplam_hesaplanan)))
+        aciklama = data.get('aciklama', 'Değerlendirme tamamlandı.')
         
-        not_mesaji = data.get('aciklama', data.get('degerlendirme', data.get('yorum', 'Değerlendirme yok.')))
-        
-            
-        return puan, not_mesaji, dagilim_sozlugu
-    
+        return puan, aciklama, dagilim
     except Exception as e:
-        print(f"JSON Ayrıştırma Hatası: {e} | Gelen Yanıt: {yanit}")
-        return 0, f"Değerlendirme formatı hatalı: {str(e)}"
-    
-    
+        print(f"AI Değerlendirme Hatası: {e}")
+        return None, None, None
+
+def odev_isleyici_worker():
+    """Veritabanındaki bekleyen ödevleri sırayla işleyen arka plan görevi."""
+    with app.app_context():
+        print("🤖 Arka plan işçisi aktif hale getirildi...")
+        while True:
+            try:
+                # Bekleyen en eski ödevi bul
+                teslim = OdevTeslim.query.filter_by(durum='bekliyor').order_by(OdevTeslim.tarih.asc()).first()
+                
+                if teslim:
+                    print(f"📝 İşleniyor: {teslim.ogrenci_ad} ({teslim.ogrenci_no})")
+                    teslim.durum = 'isleniyor'
+                    db.session.commit()
+                    
+                    secilen_odev = Odev.query.get(teslim.odev_id)
+                    hazir_input = getattr(secilen_odev, 'test_case', None)
+
+                    # 1. Kod Çalıştırma Testi
+                    basarili, sonuc_mesaji = kod_calistir_ve_test_et(teslim.kod_icerik, test_input=hazir_input)
+                    
+                    # 2. AI Değerlendirmesi
+                    puan, mesaj, dagilim = ai_degerlendir(teslim.kod_icerik, sonuc_mesaji, secilen_odev, hazir_input)
+                    
+                    if puan is not None:
+                        teslim.puan = puan
+                        teslim.geri_bildirim = mesaj
+                        teslim.puan_detay = json.dumps(dagilim)
+                        teslim.durum = 'tamamlandi'
+                        print(f"✅ Tamamlandı: {teslim.ogrenci_ad} - Puan: {puan}")
+                    else:
+                        # API hatası durumunda sıraya geri koy (veya 'hata' olarak işaretle)
+                        teslim.durum = 'bekliyor'
+                        print(f"⚠️ {teslim.ogrenci_ad} için AI hatası, tekrar denenecek.")
+                    
+                    db.session.commit()
+                    
+                    # Her ödevden sonra 10 saniye bekle
+                    time.sleep(10)
+                else:
+                    # Bekleyen yoksa 5 saniye uyu
+                    time.sleep(5)
+            except Exception as e:
+                print(f"Worker hatası: {e}")
+                time.sleep(10)
+
 def database_sifirla():
     with app.app_context():
         print("Veritabanı siliniyor...")
         db.drop_all() 
         print("Veritabanı güncel modellerle yeniden oluşturuluyor...")
         db.create_all()
-        print("İşlem başarıyla tamamlandı! Artık 'test_case' sütunu mevcut.")
+        print("İşlem başarıyla tamamlandı!")
+
+# --- SAYFALAR ---
 
 @app.template_filter('from_json')
 def from_json_filter(s):
-    try:
-        return json.loads(s)
-    except:
-        return {}
-    
-# --- SAYFALAR ---
+    try: return json.loads(s)
+    except: return {}
+
 @app.route('/')
 def index():
     aktif_odevler = Odev.query.filter_by(is_active=True).all()
@@ -245,68 +214,39 @@ def index():
 @app.route('/yukle', methods=['POST'])
 def yukle():
     try:
-        # Form verilerini al
         odev_id = request.form.get('odev_id')
         ad = request.form.get('ad')
         no = request.form.get('no')
         dosya = request.files.get('dosya')
         
-        if not all([ad, no, odev_id, dosya]):
-            flash("Eksik bilgi gönderildi.", "warning")
+        if not all([ad, no, odev_id, dosya]) or not dosya.filename.endswith('.c'):
+            flash("Lütfen tüm alanları ve geçerli bir .c dosyası girin.", "danger")
             return redirect(url_for('index'))
-
-        if not dosya or not odev_id:
-            # Teknik hata göstermeden sonuç sayfasına hata durumunu gönder
-            return render_template('sonuc.html', durum='hata')
 
         kod_metni = dosya.read().decode('utf-8', errors='ignore')
-        secilen_odev = Odev.query.get(odev_id)
-        if not secilen_odev:
-            return render_template('sonuc.html', durum='hata', mesaj="Ödev bulunamadı.")
         
-        hazir_input = getattr(secilen_odev, 'test_case', None)
-
-        # 1. Kod Derleme ve Çalıştırma
-        basarili, sonuc_mesaji = kod_calistir_ve_test_et(kod_metni,test_input=hazir_input)
-        print(sonuc_mesaji)
-        # 2. AI Değerlendirmesi
-        puan, mesaj,dagilim = ai_degerlendir(kod_metni, sonuc_mesaji, secilen_odev,hazir_input)
-        
-        if puan == 0 and "Değerlendirme yapılamadı" in mesaj:
-            flash("Yapay zeka şu an meşgul. Lütfen 1-2 dakika sonra tekrar yükleyin.", "info")
-            return redirect(url_for('index'))
-        
-        # 3. Veritabanına Kayıt
+        # ASENKRON KAYIT: AI'yı beklemeden doğrudan veritabanına yaz
         yeni_teslim = OdevTeslim(
             odev_id=odev_id,
             ogrenci_ad=ad,
             ogrenci_no=no,
-            puan=puan,
-            geri_bildirim=mesaj,
             kod_icerik=kod_metni,
-            puan_detay=json.dumps(dagilim)
+            durum='bekliyor'
         )
         db.session.add(yeni_teslim)
         db.session.commit()
         
-        # BAŞARI DURUMU
-        print("Kayıt başarılı!")
-        return render_template('sonuc.html', durum='basarili', puan=puan, mesaj=mesaj)
+        return render_template('sonuc.html', durum='basarili', mesaj="Ödevin alındı! Arka planda sıraya konuldu, puanın birazdan yönetim panelinde görünecek.")
         
     except Exception as e:
-        print(f"KRİTİK HATA: {e}")
         db.session.rollback()
-        # BAŞARISIZLIK DURUMU
         return render_template('sonuc.html', durum='hata')
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         girilen_sifre = request.form.get('sifre')
-        # Veritabanındaki şifreyi çek
         ayar = Ayarlar.query.first()
-        
         if girilen_sifre == ayar.yonetici_sifre:
             session['yetkili_giris'] = True
             return redirect(url_for('yetkili'))
@@ -317,17 +257,13 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('yetkili_giris', None)
-    flash("Oturum kapatıldı.", "info")
     return redirect(url_for('login'))
 
 @app.route('/yetkili')
 @login_required
 def yetkili():
-    if not session.get('yetkili_giris'):
-        return redirect(url_for('login'))
-    tum_odevler = Odev.query.all() 
-    teslimler = OdevTeslim.query.all()
-    
+    tum_odevler = Odev.query.all()
+    teslimler = OdevTeslim.query.order_by(OdevTeslim.tarih.desc()).all()
     return render_template('yetkili.html', tum_odevler=tum_odevler, teslimler=teslimler)
 
 @app.route('/yetkili/odev-ekle', methods=['POST'])
@@ -337,8 +273,7 @@ def odev_ekle():
     tanim = request.form.get('tanim')
     kriterler = request.form.get('kriterler')
     hazir_test_case = test_senaryosu_olustur(tanim, kriterler)
-
-    yeni_odev = Odev(baslik=baslik, tanim=tanim, kriterler=kriterler,test_case=hazir_test_case)
+    yeni_odev = Odev(baslik=baslik, tanim=tanim, kriterler=kriterler, test_case=hazir_test_case)
     db.session.add(yeni_odev)
     db.session.commit()
     return redirect(url_for('yetkili'))
@@ -351,105 +286,40 @@ def toggle_odev(id):
     db.session.commit()
     return redirect(url_for('yetkili'))
 
-@app.route('/yetkili/sifre-degistir', methods=['POST'])
-@login_required
-def sifre_degistir():
-    yeni_sifre = request.form.get('yeni_sifre')
-    if yeni_sifre:
-        ayar = Ayarlar.query.first()
-        ayar.yonetici_sifre = yeni_sifre
-        db.session.commit()
-        flash("Şifre başarıyla güncellendi!", "success")
-    return redirect(url_for('yetkili'))
-
-@app.route('/reset-password-to-default')
-def reset_password():
-    ayar = Ayarlar.query.first()
-    if ayar:
-        ayar.yonetici_sifre = default_key
-        db.session.commit()
-        flash("Şifre varsayılan olarak sıfırlandı!", "warning")
-    return redirect(url_for('login'))
-
-@app.route('/yetkili/sil/<int:id>', methods=['POST'])
-def sil_teslim(id):
-    if not session.get('yetkili_giris'):
-        return redirect(url_for('login'))
-
-    teslim = OdevTeslim.query.get_or_404(id)
-    try:
-        db.session.delete(teslim)
-        db.session.commit()
-        return redirect(url_for('yetkili'))
-    except Exception as e:
-        db.session.rollback()
-        return f"Silme işlemi sırasında hata oluştu: {e}"
-
 @app.route('/yetkili/sil-odev/<int:id>', methods=['POST'])
+@login_required
 def sil_odev(id):
-    if not session.get('yetkili_giris'):
-        return redirect(url_for('login'))
     odev = Odev.query.get_or_404(id)
-    try:
-        OdevTeslim.query.filter_by(odev_id=id).delete()
-        db.session.delete(odev)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        print(f"Hata: {e}")
-
+    OdevTeslim.query.filter_by(odev_id=id).delete()
+    db.session.delete(odev)
+    db.session.commit()
     return redirect(url_for('yetkili'))
 
 @app.route('/yetkili/odev-indir/<int:id>')
+@login_required
 def odev_indir(id):
-    # Yetki Kontrolü
-    if not session.get('yetkili_giris'):
-        return redirect(url_for('login'))
-        
-    # Ödev ve ona ait tüm teslimleri veritabanından çekme
     odev = Odev.query.get_or_404(id)
     teslimler = OdevTeslim.query.filter_by(odev_id=id).all()
     
-    dosya_icerigi = f"====================================================\n"
-    dosya_icerigi += f"        ÖDEV RAPORU: {odev.baslik}\n"
-    dosya_icerigi += f"====================================================\n"
-    dosya_icerigi += f"TANIM: {odev.tanim}\n"
-    dosya_icerigi += f"KRİTERLER: {odev.kriterler}\n"
-    dosya_icerigi += f"TOPLAM TESLİM SAYISI: {len(teslimler)}\n"
-    dosya_icerigi += f"====================================================\n\n"
-    
-    if not teslimler:
-        dosya_icerigi += "Henüz ödev gönderimi yapılmamış.\n"
-    
+    dosya_icerigi = f"RAPOR: {odev.baslik}\n" + "="*30 + "\n"
     for i, t in enumerate(teslimler, 1):
-        dosya_icerigi += f"{i}. ÖĞRENCİ BİLGİLERİ:\n"
-        dosya_icerigi += f"   - İsim: {t.ogrenci_ad}\n"
-        dosya_icerigi += f"   - Numara: {t.ogrenci_no}\n"
-        dosya_icerigi += f"   - Toplam Puan: {t.puan} / 100\n"
-        
-        # Puan detaylarını çözümleme
-        try:
-            detaylar = json.loads(t.puan_detay)
-            dosya_icerigi += "   - Puan Dağılımı:\n"
-            for kriter, puan_degeri in detaylar.items():
-                dosya_icerigi += f"     * {kriter}: {puan_degeri} Puan\n"
-        except:
-            dosya_icerigi += "   - Puan Dağılımı: Bilgi bulunamadı.\n"
-            
-        dosya_icerigi += f"\nAI GERİ BİLDİRİMİ:\n{t.geri_bildirim}\n"
-        
-        dosya_icerigi += f"\n------------------- ÖĞRENCİ KODU -------------------\n"
-        dosya_icerigi += f"{t.kod_icerik}\n"
-        dosya_icerigi += f"----------------------------------------------------\n\n\n"
+        dosya_icerigi += f"{i}. {t.ogrenci_ad} ({t.ogrenci_no}) - Puan: {t.puan}\nDurum: {t.durum}\nGeribildirim: {t.geri_bildirim}\n{'-'*20}\n{t.kod_icerik}\n\n"
+    
+    return Response(dosya_icerigi, mimetype="text/plain", headers={"Content-disposition": f"attachment; filename={odev.id}_Rapor.txt"})
 
-    # Dosya adı ödev başlığına göre otomatik belirlenir
-    safe_filename = odev.baslik.replace(" ", "_").replace("/", "-")
-    return Response(
-        dosya_icerigi,
-        mimetype="text/plain",
-        headers={"Content-disposition": f"attachment; filename={safe_filename}_Rapor.txt"}
-    )
+# --- BAŞLATMA ---
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=7860)
+    database_sifirla()
+    with app.app_context():
+        db.create_all()
+        if not Ayarlar.query.first():
+            db.session.add(Ayarlar(yonetici_sifre=default_key))
+            db.session.commit()
+    
+    # İşçi Thread'ini Başlat
+    worker_thread = threading.Thread(target=odev_isleyici_worker, daemon=True)
+    worker_thread.start()
+    
+    app.run(debug=False, host='0.0.0.0', port=7860)
 
