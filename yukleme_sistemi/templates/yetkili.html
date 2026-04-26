@@ -170,6 +170,14 @@
                         <div id="not-{{ teslim.id }}" style="display:none;">{{ teslim.geri_bildirim }}</div>
                         <div id="detay-{{ teslim.id }}" style="display:none;">{{ teslim.puan_detay }}</div>
                     </td>
+                    <td class="text-end pe-3">
+                        <form action="{{ url_for('sil_teslim', id=teslim.id) }}" method="POST"
+                            onsubmit="return confirm('Bu öğrenci teslimini silmek istediğinize emin misiniz?');">
+                            <button type="submit" class="btn btn-sm text-danger border-0 bg-transparent" title="Sil">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
