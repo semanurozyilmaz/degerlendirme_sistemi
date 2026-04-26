@@ -36,8 +36,8 @@ class Odev(db.Model):
     tanim = db.Column(db.Text, nullable=False)
     kriterler = db.Column(db.Text, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    teslimler = db.relationship('OdevTeslim', backref='odev_tanimi', lazy=True, cascade="all, delete-orphan")
     test_case = db.Column(db.Text)
+    teslimler = db.relationship('OdevTeslim', backref='odev_tanimi', lazy=True, cascade="all, delete-orphan")
 
 class OdevTeslim(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -45,11 +45,11 @@ class OdevTeslim(db.Model):
     ogrenci_ad = db.Column(db.String(100))
     ogrenci_no = db.Column(db.String(20))
     puan = db.Column(db.Integer, default=0)
-    geri_bildirim = db.Column(db.Text, default="Sıraya alındı, değerlendirme bekleniyor...")
+    geri_bildirim = db.Column(db.Text, default="Değerlendirme bekleniyor...")
     kod_icerik = db.Column(db.Text)
     puan_detay = db.Column(db.Text, default="{}")
-    # Durum: 'bekliyor', 'isleniyor', 'tamamlandi', 'hata'
-    durum = db.Column(db.String(20), default='bekliyor')
+    durum = db.Column(db.String(20), default='bekliyor') # bekliyor, isleniyor, tamamlandi, hata
+    deneme_sayisi = db.Column(db.Integer, default=0)
     tarih = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Ayarlar(db.Model):
@@ -147,48 +147,44 @@ def ai_degerlendir(kod, calisma_sonucu, odev, kullanilan_input):
         return None, None, None
 
 def odev_isleyici_worker():
-    """Veritabanındaki bekleyen ödevleri sırayla işleyen arka plan görevi."""
     with app.app_context():
-        print("🤖 Arka plan işçisi aktif hale getirildi...")
+        print("🤖 İşçi başlatıldı (Zaman aşımları güncellendi).")
         while True:
             try:
-                # Bekleyen en eski ödevi bul
-                teslim = OdevTeslim.query.filter_by(durum='bekliyor').order_by(OdevTeslim.tarih.asc()).first()
-                
+                # 'bekliyor' olanları al. 3 denemeden sonra hala bekliyorsa 'hata'ya düşecek.
+                teslim = OdevTeslim.query.filter(
+                    OdevTeslim.durum == 'bekliyor',
+                    OdevTeslim.deneme_sayisi < 3
+                ).order_by(OdevTeslim.tarih.asc()).first()
+
                 if teslim:
-                    print(f"📝 İşleniyor: {teslim.ogrenci_ad} ({teslim.ogrenci_no})")
                     teslim.durum = 'isleniyor'
+                    teslim.deneme_sayisi += 1
                     db.session.commit()
                     
-                    secilen_odev = Odev.query.get(teslim.odev_id)
-                    hazir_input = getattr(secilen_odev, 'test_case', None)
-
-                    # 1. Kod Çalıştırma Testi
-                    basarili, sonuc_mesaji = kod_calistir_ve_test_et(teslim.kod_icerik, test_input=hazir_input)
-                    
-                    # 2. AI Değerlendirmesi
-                    puan, mesaj, dagilim = ai_degerlendir(teslim.kod_icerik, sonuc_mesaji, secilen_odev, hazir_input)
+                    odev_obj = db.session.get(Odev, teslim.odev_id)
+                    basarili, sonuc = kod_calistir_ve_test_et(teslim.kod_icerik, odev_obj.test_case)
+                    puan, mesaj, detay = ai_degerlendir(teslim.kod_icerik, sonuc, odev_obj, odev_obj.test_case)
                     
                     if puan is not None:
                         teslim.puan = puan
                         teslim.geri_bildirim = mesaj
-                        teslim.puan_detay = json.dumps(dagilim)
+                        teslim.puan_detay = json.dumps(detay)
                         teslim.durum = 'tamamlandi'
-                        print(f"✅ Tamamlandı: {teslim.ogrenci_ad} - Puan: {puan}")
                     else:
-                        # API hatası durumunda sıraya geri koy (veya 'hata' olarak işaretle)
-                        teslim.durum = 'bekliyor'
-                        print(f"⚠️ {teslim.ogrenci_ad} için AI hatası, tekrar denenecek.")
+                        # Hata durumunda tekrar beklemeye al (deneme sınırı dolana kadar)
+                        if teslim.deneme_sayisi >= 3:
+                            teslim.durum = 'hata'
+                            teslim.geri_bildirim = "AI servisine bağlanırken 3 kez hata oluştu. Lütfen manuel olarak yeniden deneyin."
+                        else:
+                            teslim.durum = 'bekliyor'
                     
                     db.session.commit()
-                    
-                    # Her ödevden sonra 10 saniye bekle
-                    time.sleep(10)
+                    time.sleep(10) # API Hız Sınırı Koruması
                 else:
-                    # Bekleyen yoksa 5 saniye uyu
                     time.sleep(5)
             except Exception as e:
-                print(f"Worker hatası: {e}")
+                print(f"Worker Hatası: {e}")
                 time.sleep(10)
 
 def database_sifirla():
@@ -344,6 +340,7 @@ def reset_password():
 # --- BAŞLATMA ---
 
 if __name__ == '__main__':
+    database_sifirla()
     with app.app_context():
         db.create_all()
         if not Ayarlar.query.first():
@@ -351,8 +348,7 @@ if __name__ == '__main__':
             db.session.commit()
     
     # İşçi Thread'ini Başlat
-    worker_thread = threading.Thread(target=odev_isleyici_worker, daemon=True)
-    worker_thread.start()
+    threading.Thread(target=odev_isleyici_worker, daemon=True).start()
     
     app.run(debug=False, host='0.0.0.0', port=7860)
 

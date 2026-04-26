@@ -156,21 +156,28 @@
                     <td>{{ teslim.odev_tanimi.baslik }}</td>
                     <td>
                         {% if teslim.durum == 'bekliyor' %}
-                        <span class="badge bg-secondary">Sırada</span>
+                        <span class="badge bg-secondary">Bekliyor ({{ teslim.deneme_sayisi }}/3)</span>
                         {% elif teslim.durum == 'isleniyor' %}
                         <span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin"></i> İşleniyor</span>
                         {% elif teslim.durum == 'tamamlandi' %}
                         <span class="badge bg-success">Tamamlandı</span>
+                        {% elif teslim.durum == 'hata' %}
+                        <span class="badge bg-danger">Hata</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <span class="badge bg-primary">
-                            {{ teslim.puan if teslim.durum == 'tamamlandi' else '--' }}
-                        </span>
-                    </td>
+                    <td><span class="badge bg-primary px-3 py-2">{{ teslim.puan if teslim.durum == 'tamamlandi' else
+                            '--' }}</span></td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3"
-                            onclick="koduGoster('{{ teslim.id }}')">İncele</button>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-primary px-3"
+                                onclick="koduGoster('{{ teslim.id }}')">Detay</button>
+                            {% if teslim.durum in ['hata', 'tamamlandi', 'isleniyor'] %}
+                            <a href="{{ url_for('yeniden_dene', id=teslim.id) }}" class="btn btn-sm btn-outline-info"
+                                title="Yeniden Sıraya Al">
+                                <i class="fas fa-redo"></i>
+                            </a>
+                            {% endif %}
+                        </div>
                         <div id="kod-{{ teslim.id }}" style="display:none;">{{ teslim.kod_icerik }}</div>
                         <div id="not-{{ teslim.id }}" style="display:none;">{{ teslim.geri_bildirim }}</div>
                         <div id="detay-{{ teslim.id }}" style="display:none;">{{ teslim.puan_detay }}</div>
