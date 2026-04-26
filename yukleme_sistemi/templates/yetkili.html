@@ -34,14 +34,31 @@
 </head>
 
 <body class="container py-5">
+    <!-- Üst Başlık -->
     <div
-        class="d-flex justify-content-between align-items-center mb-5 bg-white p-3 rounded shadow-sm border-start border-primary border-4">
-        <h2 class="mb-0 fw-bold text-dark"><i class="fas fa-user-shield me-2 text-primary"></i>Yönetim Paneli</h2>
+        class="d-flex justify-content-between align-items-center mb-5 bg-white p-3 rounded-3 shadow-sm border-start border-primary border-4">
+        <div>
+            <h2 class="mb-0 fw-bold text-dark"><i class="fas fa-user-shield me-2 text-primary"></i>Yönetim Paneli</h2>
+        </div>
         <div class="d-flex gap-2">
-            <a href="/" class="btn btn-outline-primary btn-sm rounded-pill px-3">Ana Sayfa</a>
-            <a href="/logout" class="btn btn-danger btn-sm rounded-pill px-3">Çıkış</a>
+            <a href="/" class="btn btn-outline-primary btn-sm rounded-pill px-3"><i
+                    class="fas fa-external-link-alt me-1"></i>Öğrenci Sayfası</a>
+            <a href="/logout" class="btn btn-danger btn-sm rounded-pill px-3"><i
+                    class="fas fa-sign-out-alt me-1"></i>Çıkış</a>
         </div>
     </div>
+
+    <!-- Bildirimler -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0" role="alert">
+        <i class="fas fa-info-circle me-2"></i> {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
 
     <div class="row g-4 mb-5">
         <div class="col-lg-4">
@@ -59,27 +76,55 @@
             </div>
         </div>
         <div class="col-lg-8">
-            <h4 class="fw-bold mb-3">Aktif Ödevler</h4>
-            <div class="accordion shadow-sm" id="acc">
+            <h4 class="mb-3 fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Aktif Ödevler</h4>
+            <div class="accordion shadow-sm rounded-3 overflow-hidden" id="odevAccordion">
                 {% for odev in tum_odevler %}
-                <div class="accordion-item">
+                <div class="accordion-item border-0 border-bottom">
                     <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#c{{ odev.id }}">
-                            {{ odev.baslik }}
-                            <span class="badge {{ 'bg-success' if odev.is_active else 'bg-secondary' }} ms-2">
-                                {{ 'Yayında' if odev.is_active else 'Gizli' }}
-                            </span>
+                        <!-- 'querySelectorAll' hatasını önlemek için 'data-bs-target' CSS güvenli bir formata getirildi -->
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#collapse-odev-{{ odev.id }}">
+                            <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                <div>
+                                    <span>{{ odev.baslik }}</span>
+                                    <span class="badge {{ 'bg-success' if odev.is_active else 'bg-secondary' }} ms-2">
+                                        {{ 'Yayında' if odev.is_active else 'Gizli' }}
+                                    </span>
+                                </div>
+                            </div>
                         </button>
                     </h2>
-                    <div id="c{{ odev.id }}" class="accordion-collapse collapse" data-bs-parent="#acc">
-                        <div class="accordion-body">
-                            <p class="small text-muted">{{ odev.tanim }}</p>
-                            <div class="d-flex justify-content-end gap-2 mt-3">
-                                <a href="/yetkili/odev-indir/{{ odev.id }}" class="btn btn-sm btn-dark">İndir</a>
-                                <a href="/yetkili/toggle-odev/{{ odev.id }}" class="btn btn-sm btn-warning">Değiştir</a>
-                                <form action="/yetkili/sil-odev/{{ odev.id }}" method="POST"><button type="submit"
-                                        class="btn btn-sm btn-danger">Sil</button></form>
+                    <div id="collapse-odev-{{ odev.id }}" class="accordion-collapse collapse"
+                        data-bs-parent="#odevAccordion">
+                        <div class="accordion-body bg-white">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="fw-bold small text-primary d-block mb-1">Açıklama:</label>
+                                    <p class="text-muted small mb-0">{{ odev.tanim }}</p>
+                                </div>
+                                <div class="col-md-6 border-start">
+                                    <label class="fw-bold small text-primary d-block mb-1">Kriterler:</label>
+                                    <p class="text-muted small mb-0">{{ odev.kriterler }}</p>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 border-top pt-3">
+                                <!-- YENİ: Rapor İndirme Butonu -->
+                                <a href="/yetkili/odev-indir/{{ odev.id }}" class="btn btn-sm btn-dark shadow-sm">
+                                    <i class="fas fa-file-download me-1"></i> Raporu İndir (.txt)
+                                </a>
+
+                                <a href="/yetkili/toggle-odev/{{ odev.id }}"
+                                    class="btn btn-sm {{ 'btn-warning' if odev.is_active else 'btn-info' }}">
+                                    <i class="fas {{ 'fa-eye-slash' if odev.is_active else 'fa-eye' }} me-1"></i>
+                                    Görünürlük
+                                </a>
+
+                                <form action="{{ url_for('sil_odev', id=odev.id) }}" method="POST"
+                                    onsubmit="return confirm('Bu ödevi ve bağlı TÜM öğrenci yanıtlarını kalıcı olarak silmek istediğinize emin misiniz?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i> Kaldır
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
