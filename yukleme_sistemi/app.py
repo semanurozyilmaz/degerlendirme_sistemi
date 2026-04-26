@@ -310,7 +310,6 @@ def odev_indir(id):
 # --- BAŞLATMA ---
 
 if __name__ == '__main__':
-    database_sifirla()
     with app.app_context():
         db.create_all()
         if not Ayarlar.query.first():
