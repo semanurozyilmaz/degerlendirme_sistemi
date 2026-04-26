@@ -133,24 +133,26 @@
             </div>
         </div>
     </div>
-
     <h4 class="fw-bold mb-3">Teslimler</h4>
     <div class="card shadow-sm overflow-hidden">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-dark">
                 <tr>
-                    <th class="ps-3">Öğrenci</th>
-                    <th>Ödev</th>
-                    <th>Durum</th>
-                    <th>Puan</th>
-                    <th class="text-center">Detay</th>
+                    <th class="ps-3 py-3">Öğrenci</th>
+                    <th class="py-3">Ödev</th>
+                    <th class="py-3">Durum</th>
+                    <th class="py-3">Puan</th>
+                    <th class="py-3 text-center">İncele</th>
+                    <th class="py-3 text-end pe-3">Sil</th> <!-- Bu başlık hücresini ekledik -->
                 </tr>
             </thead>
             <tbody>
                 {% for teslim in teslimler %}
                 <tr>
-                    <td class="ps-3 fw-bold">{{ teslim.ogrenci_ad }}<br><small class="text-muted">{{ teslim.ogrenci_no
-                            }}</small></td>
+                    <td class="ps-3 fw-bold">
+                        {{ teslim.ogrenci_ad }}<br>
+                        <small class="text-muted">{{ teslim.ogrenci_no }}</small>
+                    </td>
                     <td>{{ teslim.odev_tanimi.baslik }}</td>
                     <td>
                         {% if teslim.durum == 'bekliyor' %}
@@ -161,8 +163,11 @@
                         <span class="badge bg-success">Tamamlandı</span>
                         {% endif %}
                     </td>
-                    <td><span class="badge bg-primary">{{ teslim.puan if teslim.durum == 'tamamlandi' else '--'
-                            }}</span></td>
+                    <td>
+                        <span class="badge bg-primary">
+                            {{ teslim.puan if teslim.durum == 'tamamlandi' else '--' }}
+                        </span>
+                    </td>
                     <td class="text-center">
                         <button class="btn btn-sm btn-outline-primary rounded-pill px-3"
                             onclick="koduGoster('{{ teslim.id }}')">İncele</button>
