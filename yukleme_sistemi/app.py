@@ -11,6 +11,7 @@ import stat
 import threading
 import time
 from dotenv import load_dotenv
+from sqlalchemy import text
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 load_dotenv()
@@ -189,11 +190,34 @@ def odev_isleyici_worker():
 
 def database_sifirla():
     with app.app_context():
-        print("Veritabanı siliniyor...")
-        db.drop_all() 
-        print("Veritabanı güncel modellerle yeniden oluşturuluyor...")
-        db.create_all()
-        print("İşlem başarıyla tamamlandı!")
+        try:
+            print("Veritabanı oturumları temizleniyor...")
+            db.session.remove()
+            
+            print("Tablolar siliniyor (Cascade)...")
+            if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI']:
+                db.session.execute(text('DROP TABLE IF EXISTS odev_teslim CASCADE'))
+                db.session.execute(text('DROP TABLE IF EXISTS odev CASCADE'))
+                db.session.execute(text('DROP TABLE IF EXISTS ayarlar CASCADE'))
+                db.session.commit()
+            else:
+                db.drop_all()
+            
+            print("Tablolar yeni kolonlarla oluşturuluyor...")
+            db.create_all()
+            
+            # Varsayılan ayarları geri yükle
+            if not Ayarlar.query.first():
+                db.session.add(Ayarlar(yonetici_sifre=default_key))
+                db.session.commit()
+                
+            print("✅ İşlem Başarılı: Veritabanı tamamen yenilendi.")
+            return True
+        except Exception as e:
+            print(f"❌ SIFIRLAMA HATASI: {str(e)}")
+            db.session.rollback()
+            return False
+
 
 # --- SAYFALAR ---
 

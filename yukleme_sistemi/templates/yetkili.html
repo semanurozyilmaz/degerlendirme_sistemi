@@ -173,7 +173,7 @@
                                 onclick="koduGoster('{{ teslim.id }}')">Detay</button>
                             {% if teslim.durum in ['hata', 'tamamlandi', 'isleniyor'] %}
                             <a href="{{ url_for('yeniden_dene', id=teslim.id) }}" class="btn btn-sm btn-outline-info"
-                                title="Yeniden Sıraya Al">
+                                title="Yeniden Dene">
                                 <i class="fas fa-redo"></i>
                             </a>
                             {% endif %}
