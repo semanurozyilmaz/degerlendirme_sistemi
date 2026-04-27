@@ -200,7 +200,7 @@ def odev_isleyici_worker():
                     time.sleep(10)
                 else:
                     WORKER_STATUS["status"] = "Beklemede (Boş)"
-                    time.sleep(5)
+                    time.sleep(10)
             except Exception as e:
                 print(f"Worker Hatası: {e}")
                 db.session.rollback()
