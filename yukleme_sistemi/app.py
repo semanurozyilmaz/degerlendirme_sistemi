@@ -31,8 +31,9 @@ db = SQLAlchemy(app)
 
 WORKER_STATUS = {
     "last_run": "Henüz başlamadı",
-    "status": "Başlatılıyor...",
-    "processed_count": 0
+    "status": "Beklemede",
+    "processed_count": 0,
+    "enabled": True 
 }
 # --- VERİTABANI MODELLERİ ---
 
@@ -155,29 +156,30 @@ def ai_degerlendir(kod, calisma_sonucu, odev, kullanilan_input):
 def odev_isleyici_worker():
     global WORKER_STATUS
     with app.app_context():
-        print("🤖 İşçi thread başlatıldı.")
         while True:
             try:
+                # EĞER İŞÇİ DURDURULDUYSA
+                if not WORKER_STATUS["enabled"]:
+                    WORKER_STATUS["status"] = "Durduruldu (Pasif)"
+                    WORKER_STATUS["last_run"] = datetime.now().strftime("%H:%M:%S")
+                    time.sleep(30) # 30 saniye boyunca hiçbir şey yapmadan bekle
+                    continue
+
                 WORKER_STATUS["last_run"] = datetime.now().strftime("%H:%M:%S")
-                WORKER_STATUS["status"] = "Ödev Aranıyor..."
+                WORKER_STATUS["status"] = "Ödev Bekleniyor..."
+                
                 db.session.expire_all()
                 db.session.commit()
-
-                teslim = OdevTeslim.query.filter(
-                    OdevTeslim.durum == 'bekliyor', 
-                    OdevTeslim.deneme_sayisi < 3
-                ).order_by(OdevTeslim.tarih.asc()).first()
+                
+                teslim = OdevTeslim.query.filter(OdevTeslim.durum == 'bekliyor', OdevTeslim.deneme_sayisi < 3).order_by(OdevTeslim.tarih.asc()).first()
                 
                 if teslim:
                     WORKER_STATUS["status"] = f"İşleniyor: {teslim.ogrenci_ad}"
-                    print(f"📝 {teslim.ogrenci_ad} değerlendiriliyor...")
-                    
                     teslim.durum = 'isleniyor'
                     teslim.deneme_sayisi += 1
                     db.session.commit()
                     
                     odev_obj = db.session.get(Odev, teslim.odev_id)
-                    # HATA BURADAYDI: Parametre sayısı ve test_case eklendi
                     _, sonuc = kod_calistir_ve_test_et(teslim.kod_icerik, odev_obj.test_case)
                     puan, mesaj, detay = ai_degerlendir(teslim.kod_icerik, sonuc, odev_obj, odev_obj.test_case)
                     
@@ -187,25 +189,20 @@ def odev_isleyici_worker():
                         teslim.puan_detay = json.dumps(detay)
                         teslim.durum = 'tamamlandi'
                         WORKER_STATUS["processed_count"] += 1
-                        print(f"✅ Başarılı: {teslim.ogrenci_ad}")
                     else:
                         if teslim.deneme_sayisi >= 3:
                             teslim.durum = 'hata'
                             teslim.geri_bildirim = "AI servisine bağlanılamadı (3 deneme başarısız)."
                         else:
                             teslim.durum = 'bekliyor'
-                        print(f"⚠️ Hata: {teslim.ogrenci_ad} tekrar denenecek.")
                     
                     db.session.commit()
                     time.sleep(10)
                 else:
-                    WORKER_STATUS["status"] = "Beklemede (Boş)"
-                    time.sleep(10)
+                    time.sleep(5) # Bekleyen ödev yoksa 5 saniye uyu
             except Exception as e:
-                print(f"Worker Hatası: {e}")
                 db.session.rollback()
                 time.sleep(10)
-
 
 def database_sifirla():
     with app.app_context():
@@ -391,6 +388,14 @@ def yeniden_dene(id):
         flash("Ödev yeniden sıraya alındı.", "success")
     return redirect(url_for('yetkili'))
 
+@app.route('/yetkili/isçi-toggle')
+@login_required
+def worker_toggle():
+    WORKER_STATUS["enabled"] = not WORKER_STATUS["enabled"]
+    durum_metni = "başlatıldı" if WORKER_STATUS["enabled"] else "durduruldu"
+    flash(f"Sistem işçisi başarıyla {durum_metni}.", "info")
+    return redirect(url_for('yetkili'))
+
 # --- BAŞLATMA ---
 worker_thread = threading.Thread(target=odev_isleyici_worker, daemon=True)
 worker_thread.start()
@@ -398,9 +403,6 @@ worker_thread.start()
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        if not Ayarlar.query.first():
-            db.session.add(Ayarlar(yonetici_sifre=default_key))
-            db.session.commit()
     
     app.run(debug=False, host='0.0.0.0', port=7860)
 
