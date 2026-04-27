@@ -303,7 +303,7 @@ def logout():
 def yetkili():
     tum_odevler = Odev.query.all()
     teslimler = OdevTeslim.query.order_by(OdevTeslim.tarih.desc()).all()
-    return render_template('yetkili.html', tum_odevler=tum_odevler, teslimler=teslimler)
+    return render_template('yetkili.html', tum_odevler=tum_odevler, teslimler=teslimler,worker_status=WORKER_STATUS)
 
 @app.route('/yetkili/odev-ekle', methods=['POST'])
 @login_required
