@@ -29,6 +29,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///local.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+WORKER_STATUS = {
+    "last_run": "Henüz başlamadı",
+    "status": "Başlatılıyor...",
+    "processed_count": 0
+}
 # --- VERİTABANI MODELLERİ ---
 
 class Odev(db.Model):
@@ -148,44 +153,60 @@ def ai_degerlendir(kod, calisma_sonucu, odev, kullanilan_input):
         return None, None, None
 
 def odev_isleyici_worker():
+    global WORKER_STATUS
     with app.app_context():
-        print("🤖 İşçi başlatıldı (Zaman aşımları güncellendi).")
+        print("🤖 İşçi thread başlatıldı.")
         while True:
             try:
-                # 'bekliyor' olanları al. 3 denemeden sonra hala bekliyorsa 'hata'ya düşecek.
+                # Durumu güncelle
+                WORKER_STATUS["last_run"] = datetime.now().strftime("%H:%M:%S")
+                WORKER_STATUS["status"] = "Ödev Aranıyor..."
+
+                # Veritabanı önbelleğini temizle (Yeni kayıtları görebilmek için)
+                db.session.expire_all()
+                db.session.commit()
+
+                # Bekleyen ödevi çek
                 teslim = OdevTeslim.query.filter(
-                    OdevTeslim.durum == 'bekliyor',
+                    OdevTeslim.durum == 'bekliyor', 
                     OdevTeslim.deneme_sayisi < 3
                 ).order_by(OdevTeslim.tarih.asc()).first()
-
+                
                 if teslim:
+                    WORKER_STATUS["status"] = f"İşleniyor: {teslim.ogrenci_ad}"
+                    print(f"📝 {teslim.ogrenci_ad} değerlendiriliyor...")
+                    
                     teslim.durum = 'isleniyor'
                     teslim.deneme_sayisi += 1
                     db.session.commit()
                     
                     odev_obj = db.session.get(Odev, teslim.odev_id)
-                    basarili, sonuc = kod_calistir_ve_test_et(teslim.kod_icerik, odev_obj.test_case)
-                    puan, mesaj, detay = ai_degerlendir(teslim.kod_icerik, sonuc, odev_obj, odev_obj.test_case)
+                    _, sonuc = kod_calistir_ve_test_et(teslim.kod_icerik, odev_obj.test_case)
+                    puan, mesaj, detay = ai_degerlendir(teslim.kod_icerik, sonuc, odev_obj)
                     
                     if puan is not None:
                         teslim.puan = puan
                         teslim.geri_bildirim = mesaj
                         teslim.puan_detay = json.dumps(detay)
                         teslim.durum = 'tamamlandi'
+                        WORKER_STATUS["processed_count"] += 1
                     else:
-                        # Hata durumunda tekrar beklemeye al (deneme sınırı dolana kadar)
+                        # Hata durumunda (Rate limit vb)
                         if teslim.deneme_sayisi >= 3:
                             teslim.durum = 'hata'
-                            teslim.geri_bildirim = "AI servisine bağlanırken 3 kez hata oluştu. Lütfen manuel olarak yeniden deneyin."
+                            teslim.geri_bildirim = "API/Sistem hatası nedeniyle 3 deneme başarısız oldu."
                         else:
                             teslim.durum = 'bekliyor'
                     
                     db.session.commit()
-                    time.sleep(10) # API Hız Sınırı Koruması
+                    time.sleep(10) # API Limit Koruyucu
                 else:
+                    WORKER_STATUS["status"] = "Beklemede (Tüm ödevler işlendi)"
                     time.sleep(5)
             except Exception as e:
                 print(f"Worker Hatası: {e}")
+                WORKER_STATUS["status"] = f"HATA: {str(e)[:30]}..."
+                db.session.rollback()
                 time.sleep(10)
 
 def database_sifirla():
@@ -373,6 +394,8 @@ def yeniden_dene(id):
     return redirect(url_for('yetkili'))
 
 # --- BAŞLATMA ---
+worker_thread = threading.Thread(target=odev_isleyici_worker, daemon=True)
+worker_thread.start()
 
 if __name__ == '__main__':
     with app.app_context():
@@ -380,9 +403,6 @@ if __name__ == '__main__':
         if not Ayarlar.query.first():
             db.session.add(Ayarlar(yonetici_sifre=default_key))
             db.session.commit()
-    
-    # İşçi Thread'ini Başlat
-    threading.Thread(target=odev_isleyici_worker, daemon=True).start()
     
     app.run(debug=False, host='0.0.0.0', port=7860)
 
