@@ -158,15 +158,11 @@ def odev_isleyici_worker():
         print("🤖 İşçi thread başlatıldı.")
         while True:
             try:
-                # Durumu güncelle
                 WORKER_STATUS["last_run"] = datetime.now().strftime("%H:%M:%S")
                 WORKER_STATUS["status"] = "Ödev Aranıyor..."
-
-                # Veritabanı önbelleğini temizle (Yeni kayıtları görebilmek için)
                 db.session.expire_all()
                 db.session.commit()
 
-                # Bekleyen ödevi çek
                 teslim = OdevTeslim.query.filter(
                     OdevTeslim.durum == 'bekliyor', 
                     OdevTeslim.deneme_sayisi < 3
@@ -181,8 +177,9 @@ def odev_isleyici_worker():
                     db.session.commit()
                     
                     odev_obj = db.session.get(Odev, teslim.odev_id)
+                    # HATA BURADAYDI: Parametre sayısı ve test_case eklendi
                     _, sonuc = kod_calistir_ve_test_et(teslim.kod_icerik, odev_obj.test_case)
-                    puan, mesaj, detay = ai_degerlendir(teslim.kod_icerik, sonuc, odev_obj)
+                    puan, mesaj, detay = ai_degerlendir(teslim.kod_icerik, sonuc, odev_obj, odev_obj.test_case)
                     
                     if puan is not None:
                         teslim.puan = puan
@@ -190,24 +187,25 @@ def odev_isleyici_worker():
                         teslim.puan_detay = json.dumps(detay)
                         teslim.durum = 'tamamlandi'
                         WORKER_STATUS["processed_count"] += 1
+                        print(f"✅ Başarılı: {teslim.ogrenci_ad}")
                     else:
-                        # Hata durumunda (Rate limit vb)
                         if teslim.deneme_sayisi >= 3:
                             teslim.durum = 'hata'
-                            teslim.geri_bildirim = "API/Sistem hatası nedeniyle 3 deneme başarısız oldu."
+                            teslim.geri_bildirim = "AI servisine bağlanılamadı (3 deneme başarısız)."
                         else:
                             teslim.durum = 'bekliyor'
+                        print(f"⚠️ Hata: {teslim.ogrenci_ad} tekrar denenecek.")
                     
                     db.session.commit()
-                    time.sleep(10) # API Limit Koruyucu
+                    time.sleep(10)
                 else:
-                    WORKER_STATUS["status"] = "Beklemede (Tüm ödevler işlendi)"
+                    WORKER_STATUS["status"] = "Beklemede (Boş)"
                     time.sleep(5)
             except Exception as e:
                 print(f"Worker Hatası: {e}")
-                WORKER_STATUS["status"] = f"HATA: {str(e)[:30]}..."
                 db.session.rollback()
                 time.sleep(10)
+
 
 def database_sifirla():
     with app.app_context():
